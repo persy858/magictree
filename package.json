@@ -1,0 +1,33 @@
+{
+  "name": "magic-tree-dapp",
+  "version": "1.0.0",
+  "description": "基于以太坊的神树 DApp",
+  "type": "module",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "deploy:sepolia": "hardhat run scripts/deploy.js --network sepolia",
+    "verify": "hardhat verify --network sepolia",
+    "clean": "hardhat clean",
+    "node": "hardhat node",
+    "frontend": "npx http-server frontend -p 8000"
+  },
+  "keywords": [
+    "ethereum",
+    "blockchain",
+    "dapp",
+    "hardhat",
+    "solidity"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "@nomicfoundation/hardhat-verify": "^2.0.0",
+    "hardhat": "^2.22.0"
+  },
+  "dependencies": {
+    "ethers": "^6.7.0",
+    "http-server": "^14.1.1"
+  }
+}
