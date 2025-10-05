@@ -11,6 +11,8 @@ interface TreeInfo {
   fruits: bigint;
   points: bigint;
   cooldownRemaining: bigint;
+  dailyFertilizeCount: bigint;
+  dailyFertilizeRemaining: bigint;
 }
 
 interface Web3ContextType {
@@ -94,6 +96,8 @@ export function Web3Provider({ children }: { children: ReactNode }) {
         fruits: info[3],
         points: info[4],
         cooldownRemaining: info[5],
+        dailyFertilizeCount: info[6],
+        dailyFertilizeRemaining: info[7],
       });
     } catch (error) {
       console.error('Failed to load tree info:', error);

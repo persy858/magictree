@@ -144,10 +144,16 @@ export default function TreeSection() {
         </div>
       )}
 
+      {treeInfo.dailyFertilizeRemaining !== undefined && (
+        <div className="text-lg mb-4">
+          {t('dailyLimit')} <span className="font-bold text-green-300">{treeInfo.dailyFertilizeRemaining.toString()}</span>{t('dailyLimitSuffix')}
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row gap-4 justify-center mb-6">
         <button
           onClick={handleFertilize}
-          disabled={loading || cooldown > 0}
+          disabled={loading || cooldown > 0 || (treeInfo.dailyFertilizeRemaining !== undefined && treeInfo.dailyFertilizeRemaining === 0n)}
           className="bg-gradient-to-r from-pink-500 to-red-500 hover:from-pink-600 hover:to-red-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-4 px-8 rounded-full text-lg transition-all hover:scale-105 hover:shadow-xl"
         >
           {loading ? '⏳' : t('fertilizeButton')}

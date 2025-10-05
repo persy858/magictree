@@ -48,7 +48,9 @@ export const translations = {
       noPlayers: "暂无玩家",
       you: "你",
       loading: "加载中...",
-      refresh: "刷新"
+      refresh: "刷新",
+        dailyLimit: "每日限额",
+        dailyLimitSuffix: "次"
     },
     en: {
       title: "🌳 Magic Tree DApp",
@@ -99,7 +101,11 @@ export const translations = {
       noPlayers: "No players yet",
       you: "You",
       loading: "Loading...",
-      refresh: "Refresh"
+        refresh: "Refresh",
+        dailyLimit: "DailyLimit",
+        dailyLimitSuffix: "times"
+        
+
     }
   };
   

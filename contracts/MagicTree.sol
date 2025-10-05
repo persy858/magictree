@@ -9,6 +9,8 @@ contract MagicTree {
         uint256 lastActionTime;
         uint256 fruits;
         uint256 points;
+        uint256 dailyFertilizeCount;      // 今日施肥次数
+        uint256 lastFertilizeDate;        // 上次施肥日期（天数）
     }
     
     // 用户地址 => 神树数据
@@ -33,6 +35,9 @@ contract MagicTree {
     // 结果实所需施肥次数
     uint256 public constant FERTILIZE_FOR_FRUIT = 5;
     
+    // 每日最大施肥次数
+    uint256 public constant MAX_DAILY_FERTILIZE = 30;
+    
     // 合约所有者
     address public owner;
     
@@ -48,10 +53,18 @@ contract MagicTree {
         trees[msg.sender] = Tree({
             exists: true,
             fertilizeCount: 0,
-            lastActionTime: 0, // 初始化为0，允许立即施肥
+            lastActionTime: 0,
             fruits: 0,
-            points: 0
+            points: 0,
+            dailyFertilizeCount: 0,
+            lastFertilizeDate: 0
         });
+        
+        // 添加到玩家列表
+        if (!isPlayer[msg.sender]) {
+            allPlayers.push(msg.sender);
+            isPlayer[msg.sender] = true;
+        }
         
         emit TreeMinted(msg.sender, block.timestamp);
     }
@@ -65,7 +78,20 @@ contract MagicTree {
             "Cooldown not finished"
         );
         
+        // 获取当前日期（天数）
+        uint256 currentDay = block.timestamp / 1 days;
+        
+        // 如果是新的一天，重置每日计数
+        if (tree.lastFertilizeDate != currentDay) {
+            tree.dailyFertilizeCount = 0;
+            tree.lastFertilizeDate = currentDay;
+        }
+        
+        // 检查每日限制
+        require(tree.dailyFertilizeCount < MAX_DAILY_FERTILIZE, "Daily fertilize limit reached");
+        
         tree.fertilizeCount++;
+        tree.dailyFertilizeCount++;
         tree.lastActionTime = block.timestamp;
         
         // 每5次施肥结出1个果实
@@ -99,7 +125,9 @@ contract MagicTree {
         uint256 lastActionTime,
         uint256 fruits,
         uint256 points,
-        uint256 cooldownRemaining
+        uint256 cooldownRemaining,
+        uint256 dailyFertilizeCount,
+        uint256 dailyFertilizeRemaining
     ) {
         Tree memory tree = trees[user];
         uint256 cooldown = 0;
@@ -108,13 +136,20 @@ contract MagicTree {
             cooldown = (tree.lastActionTime + COOLDOWN_TIME) - block.timestamp;
         }
         
+        // 计算今日剩余施肥次数
+        uint256 currentDay = block.timestamp / 1 days;
+        uint256 dailyCount = tree.lastFertilizeDate == currentDay ? tree.dailyFertilizeCount : 0;
+        uint256 dailyRemaining = MAX_DAILY_FERTILIZE > dailyCount ? MAX_DAILY_FERTILIZE - dailyCount : 0;
+        
         return (
             tree.exists,
             tree.fertilizeCount,
             tree.lastActionTime,
             tree.fruits,
             tree.points,
-            cooldown
+            cooldown,
+            dailyCount,
+            dailyRemaining
         );
     }
     

@@ -5,7 +5,7 @@ export const CONTRACT_ABI = [
   "function mintTree() external payable",
   "function fertilize() external",
   "function harvestFruit() external",
-  "function getTreeInfo(address user) external view returns (bool exists, uint256 fertilizeCount, uint256 lastActionTime, uint256 fruits, uint256 points, uint256 cooldownRemaining)",
+  "function getTreeInfo(address user) external view returns (bool exists, uint256 fertilizeCount, uint256 lastActionTime, uint256 fruits, uint256 points, uint256 cooldownRemaining, uint256 dailyFertilizeCount, uint256 dailyFertilizeRemaining)",
   "function getLeaderboard(uint256 limit) external view returns (address[] addresses, uint256[] points, uint256[] fertilizeCounts)",
   "function getTotalPlayers() external view returns (uint256)",
   "event TreeMinted(address indexed owner, uint256 timestamp)",

@@ -2,8 +2,8 @@
   "_format": "hh-sol-cache-2",
   "files": {
     "D:\\zama\\10\\contracts\\MagicTree.sol": {
-      "lastModificationDate": 1759643902894,
-      "contentHash": "c065c7529558a01836bfdbbd04cbdf63",
+      "lastModificationDate": 1759650299406,
+      "contentHash": "17f66c1d52d6f3ffdb02bc0bcf236532",
       "sourceName": "contracts/MagicTree.sol",
       "solcConfig": {
         "version": "0.8.20",
