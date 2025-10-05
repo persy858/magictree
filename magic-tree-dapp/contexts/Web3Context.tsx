@@ -2,7 +2,11 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { BrowserProvider, Contract, ethers } from 'ethers';
-import { CONTRACT_ADDRESS, CONTRACT_ABI, SEPOLIA_CHAIN_ID } from '@/config/contract';
+import { 
+  MAGIC_TREE_ADDRESS, 
+  MAGIC_TREE_ABI, 
+  SEPOLIA_CHAIN_ID 
+} from '@/config/contract';
 
 interface TreeInfo {
   exists: boolean;
@@ -60,7 +64,7 @@ export function Web3Provider({ children }: { children: ReactNode }) {
         try {
           await window.ethereum.request({
             method: 'wallet_switchEthereumChain',
-            params: [{ chainId: '0xaa36a7' }],
+            params: [{ chainId: '0xaa36a7' }], // Sepolia
           });
         } catch (switchError: any) {
           if (switchError.code === 4902) {
@@ -70,11 +74,15 @@ export function Web3Provider({ children }: { children: ReactNode }) {
         return;
       }
 
-      if (!ethers.isAddress(CONTRACT_ADDRESS)) {
+      if (!ethers.isAddress(MAGIC_TREE_ADDRESS)) {
         throw new Error('Invalid contract address');
       }
 
-      const magicTreeContract = new Contract(CONTRACT_ADDRESS, CONTRACT_ABI, userSigner);
+      const magicTreeContract = new Contract(
+        MAGIC_TREE_ADDRESS, 
+        MAGIC_TREE_ABI, 
+        userSigner
+      );
       setContract(magicTreeContract);
       setIsConnected(true);
 
@@ -117,18 +125,24 @@ export function Web3Provider({ children }: { children: ReactNode }) {
         setTimeout(() => refreshTreeInfo(), 2000);
       };
 
+      // 原有事件
       contract.on('TreeMinted', handleEvent);
       contract.on('TreeFertilized', handleEvent);
       contract.on('FruitDecomposed', handleEvent);
+      
+      // 新增：代币兑换事件（重要！兑换后需要刷新积分）
+      contract.on('TokensRedeemed', handleEvent);
 
       return () => {
         contract.off('TreeMinted', handleEvent);
         contract.off('TreeFertilized', handleEvent);
         contract.off('FruitDecomposed', handleEvent);
+        contract.off('TokensRedeemed', handleEvent);
       };
     }
   }, [contract, account]);
 
+  // 监听账户和网络变化
   useEffect(() => {
     if (window.ethereum) {
       window.ethereum.on('accountsChanged', () => {
@@ -138,6 +152,13 @@ export function Web3Provider({ children }: { children: ReactNode }) {
         window.location.reload();
       });
     }
+
+    return () => {
+      if (window.ethereum) {
+        window.ethereum.removeAllListeners('accountsChanged');
+        window.ethereum.removeAllListeners('chainChanged');
+      }
+    };
   }, []);
 
   return (

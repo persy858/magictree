@@ -27,6 +27,7 @@
     "hardhat": "^2.22.0"
   },
   "dependencies": {
+    "@openzeppelin/contracts": "^5.4.0",
     "ethers": "^6.7.0",
     "http-server": "^14.1.1"
   }

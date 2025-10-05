@@ -1,61 +1,113 @@
 import hre from "hardhat";
 
 async function main() {
-  console.log("🌳 开始部署神树合约...");
+  console.log("Starting Magic Tree deployment...\n");
 
-  // 获取部署账户
+  // Get deployer account
   const [deployer] = await hre.ethers.getSigners();
-  console.log("部署账户:", deployer.address);
-  
-  // 检查账户余额
   const balance = await hre.ethers.provider.getBalance(deployer.address);
-  console.log("账户余额:", hre.ethers.formatEther(balance), "ETH");
-
-  // 部署合约
-  const MagicTree = await hre.ethers.getContractFactory("MagicTree");
-  console.log("\n⏳ 正在部署合约...");
   
-  const magicTree = await MagicTree.deploy();
+  console.log("Deploying contracts with account:", deployer.address);
+  console.log("Account balance:", hre.ethers.formatEther(balance), "ETH\n");
+
+  // Step 1: Deploy MagicToken
+  console.log("Step 1/3: Deploying MagicToken...");
+  const MagicToken = await hre.ethers.getContractFactory("MagicToken");
+  const magicToken = await MagicToken.deploy();
+  await magicToken.waitForDeployment();
+  
+  const tokenAddress = await magicToken.getAddress();
+  console.log("MagicToken deployed to:", tokenAddress);
+  console.log("Max supply:", hre.ethers.formatEther(await magicToken.MAX_SUPPLY()), "MTT\n");
+
+  // Step 2: Deploy MagicTree
+  console.log("Step 2/3: Deploying MagicTree...");
+  const MagicTree = await hre.ethers.getContractFactory("MagicTree");
+  const magicTree = await MagicTree.deploy(tokenAddress);
   await magicTree.waitForDeployment();
   
-  const contractAddress = await magicTree.getAddress();
+  const treeAddress = await magicTree.getAddress();
+  console.log("MagicTree deployed to:", treeAddress);
+  console.log("Mint price:", hre.ethers.formatEther(await magicTree.MINT_PRICE()), "ETH");
+  console.log("Cooldown:", await magicTree.COOLDOWN_TIME(), "seconds");
+  console.log("Daily limit:", await magicTree.MAX_DAILY_FERTILIZE(), "fertilizes\n");
+
+  // Step 3: Set Minter
+  console.log("Step 3/3: Setting minter permission...");
+  const setMinterTx = await magicToken.setMinter(treeAddress);
+  await setMinterTx.wait();
+  console.log("Minter set successfully!");
+  console.log("WARNING: Minter is now permanently locked\n");
+
+  // Verification
+  console.log("Verifying deployment...");
   
-  console.log("\n✅ 神树合约部署成功!");
-  console.log("📍 合约地址:", contractAddress);
-  console.log("🔗 Etherscan:", `https://sepolia.etherscan.io/address/${contractAddress}`);
-  console.log("\n📝 请将此地址更新到前端 HTML 文件的 CONTRACT_ADDRESS 变量中");
+  const minter = await magicToken.minter();
+  const minterSet = await magicToken.minterSet();
+  const treeToken = await magicTree.magicToken();
+  const initialRate = await magicTree.getCurrentExchangeRate();
+  const percentage = await magicTree.getTokenRemainingPercentage();
   
-  // 等待几个区块确认后再验证
-  console.log("\n⏳ 等待 5 个区块确认...");
-  await magicTree.deploymentTransaction().wait(5);
-  console.log("✅ 区块已确认");
+  console.log("Minter address:", minter);
+  console.log("Minter locked:", minterSet);
+  console.log("Tree token address:", treeToken);
+  console.log("Initial exchange rate:", initialRate.toString(), "points = 1 MTT");
+  console.log("Token remaining:", (Number(percentage) / 100).toFixed(2), "%\n");
   
-  // 验证合约
-  console.log("\n🔍 开始验证合约...");
-  try {
-    await hre.run("verify:verify", {
-      address: contractAddress,
-      constructorArguments: [],
-    });
-    console.log("✅ 合约验证成功!");
-  } catch (error) {
-    if (error.message.includes("Already Verified")) {
-      console.log("ℹ️ 合约已经验证过了");
-    } else {
-      console.log("❌ 合约验证失败:", error.message);
-      console.log("💡 你可以稍后手动验证合约");
-    }
+  // Validate
+  let errors = 0;
+  if (minter.toLowerCase() !== treeAddress.toLowerCase()) {
+    console.log("ERROR: Minter address mismatch!");
+    errors++;
+  }
+  if (!minterSet) {
+    console.log("ERROR: Minter not locked!");
+    errors++;
+  }
+  if (treeToken.toLowerCase() !== tokenAddress.toLowerCase()) {
+    console.log("ERROR: Token address mismatch!");
+    errors++;
+  }
+  
+  if (errors === 0) {
+    console.log("All validations passed!\n");
+  } else {
+    console.log(`\nFound ${errors} error(s)!\n`);
+    process.exit(1);
   }
 
-  console.log("\n🎉 部署完成！下一步:");
-  console.log("1. 更新前端的 CONTRACT_ADDRESS");
-  console.log("2. 在 Sepolia 水龙头获取测试 ETH");
-  console.log("3. 开始使用你的神树 DApp!");
+  // Summary
+  console.log("=".repeat(60));
+  console.log("Deployment Summary\n");
+  console.log("MagicToken:", tokenAddress);
+  console.log("MagicTree:", treeAddress);
+  console.log("\nEtherscan (Sepolia):");
+  console.log(`  Token: https://sepolia.etherscan.io/address/${tokenAddress}`);
+  console.log(`  Tree:  https://sepolia.etherscan.io/address/${treeAddress}`);
+  console.log("=".repeat(60));
+
+  // Environment variables
+  console.log("\nAdd to .env.local:\n");
+  console.log(`NEXT_PUBLIC_MAGIC_TOKEN_CONTRACT=${tokenAddress}`);
+  console.log(`NEXT_PUBLIC_MAGIC_TREE_CONTRACT=${treeAddress}\n`);
+
+  // Verification commands
+  console.log("To verify contracts:\n");
+  console.log(`npx hardhat verify --network sepolia ${tokenAddress}`);
+  console.log(`npx hardhat verify --network sepolia ${treeAddress} ${tokenAddress}\n`);
+
+  return {
+    magicToken: tokenAddress,
+    magicTree: treeAddress,
+    deployer: deployer.address
+  };
 }
 
 main()
   .then(() => process.exit(0))
   .catch((error) => {
-    console.error(error);
+    console.error("Deployment failed:", error);
     process.exit(1);
   });
+
+export default main;

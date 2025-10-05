@@ -8,6 +8,7 @@ import WalletSection from '@/components/WalletSection';
 import MintSection from '@/components/MintSection';
 import TreeSection from '@/components/TreeSection';
 import Leaderboard from '@/components/Leaderboard';
+import TokenExchangeSection from '@/components/TokenExchangeSection';
 
 export default function Home() {
   const { isConnected, treeInfo } = useWeb3();
@@ -34,7 +35,8 @@ export default function Home() {
             {!treeInfo?.exists && <MintSection />}
             {treeInfo?.exists && <TreeSection />}
             
-            <Leaderboard />
+                      <TokenExchangeSection />
+                      <Leaderboard />                      
           </>
         )}
       </div>
