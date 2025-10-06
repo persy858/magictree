@@ -76,7 +76,7 @@ export default function TokenExchangeSection() {
       await tx.wait();
       
       setMessage({ 
-        text: `${t('exchangeSuccess')} ${points} ${t('pointsFor')} ${tokensToReceive} ${t('tokens')}`, 
+        text: `${t('exchangeSuccess')} ${points} ${t('forTokens')} ${tokensToReceive} ${t('tokens')}`, 
         type: 'success' 
       });
       
@@ -144,7 +144,7 @@ export default function TokenExchangeSection() {
           <div className="text-sm opacity-80 mb-2">{t('totalPlayers')}</div>
           <div className="text-3xl font-bold">{totalPlayers}</div>
           <div className="text-xs opacity-60 mt-1">
-            {t('tier')} {getCurrentTier()} • {t('nextTier')} {getNextTierPlayers()}
+            {t('tier')} {getCurrentTier()} • {t('nextAt')} {getNextTierPlayers()}
           </div>
         </div>
         

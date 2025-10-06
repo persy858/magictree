@@ -4,7 +4,7 @@ import { Web3Provider } from '@/contexts/Web3Context';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 
 export const metadata: Metadata = {
-  title: 'Magic Tree DApp - 神树DApp',
+  title: 'Magic Tree On Zama',
   description: 'Grow your magical tree and harvest bountiful fruits',
 };
 

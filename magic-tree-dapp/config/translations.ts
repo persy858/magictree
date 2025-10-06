@@ -1,7 +1,7 @@
 export const translations = {
     zh: {
       // 基础翻译
-      title: "🌳 神树DApp",
+      title: "🌳 神秘果树",
       subtitle: "培育你的神奇树木，收获丰硕果实",
       connectWallet: "连接钱包",
       walletConnected: "✅ 钱包已连接",
@@ -74,6 +74,7 @@ export const translations = {
       exchangedPoints: "已兑换",
       forTokens: "积分换取",
       tokens: "MTT代币！",
+      pointsFor: "兑换",
       exchangeFailed: "❌ 兑换失败:",
       insufficientPoints: "积分不足",
       invalidAmount: "请输入有效的数量",
@@ -90,7 +91,7 @@ export const translations = {
     },
     en: {
       // Basic translations
-      title: "🌳 Magic Tree DApp",
+      title: "🌳 Magic Tree",
       subtitle: "Grow your magical tree and harvest bountiful fruits",
       connectWallet: "Connect Wallet",
       walletConnected: "✅ Wallet Connected",
@@ -162,6 +163,7 @@ export const translations = {
       exchangeSuccess: "✅ Exchange successful!",
       exchangedPoints: "Exchanged",
       forTokens: "points for",
+      pointsFor: "points for",
       tokens: "MTT tokens!",
       exchangeFailed: "❌ Exchange failed:",
       insufficientPoints: "Insufficient points",

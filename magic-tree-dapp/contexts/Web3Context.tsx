@@ -8,6 +8,12 @@ import {
   SEPOLIA_CHAIN_ID 
 } from '@/config/contract';
 
+declare global {
+  interface Window {
+    ethereum?: any;
+  }
+}
+
 interface TreeInfo {
   exists: boolean;
   fertilizeCount: bigint;
