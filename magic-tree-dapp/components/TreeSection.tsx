@@ -20,7 +20,7 @@ export default function TreeSection() {
   // 使用FHEVM实例
   const { fhevmInstance, isReady } = useFHEVM();
 
-  const { storage } = useInMemoryStorage(); // ✅ 获取内存存储
+  const { storage } = useInMemoryStorage();
 
   useEffect(() => {
     if (treeInfo && treeInfo.cooldownRemaining > 0n) {
@@ -54,7 +54,7 @@ export default function TreeSection() {
   const handleDecryptPoints = async () => {
     if (!fhevmInstance || !contract || !signer || !treeInfo?.encryptedPoints) {
       setMessage({ 
-        text: 'FHE实例未就绪或无加密数据', 
+        text: t('fheNotReady'), 
         type: 'error' 
       });
       return;
@@ -66,7 +66,7 @@ export default function TreeSection() {
     try {
       setIsDecryptingPoints(true);
       setMessage({ 
-        text: '正在解密积分...', 
+        text: t('decryptingPoints'), 
         type: 'info' 
       });
 
@@ -119,13 +119,13 @@ export default function TreeSection() {
       console.log(points)
       
       setMessage({ 
-        text: `解密成功: ${points} 积分`, 
+        text: `${t('decryptSuccess')}: ${points} ${t('points')}`, 
         type: 'success' 
       });
     } catch (error: any) {
       console.error('Decrypt error:', error);
       setMessage({ 
-        text: `解密失败: ${error.message}`, 
+        text: `${t('decryptFailed')}: ${error.message}`, 
         type: 'error' 
       });
     } finally {
@@ -183,7 +183,7 @@ export default function TreeSection() {
       await tx.wait();
       
       setMessage({ 
-        text: '果实采摘成功！积分已加密增加', 
+        text: t('harvestSuccessEncrypted'), 
         type: 'success' 
       });
       
@@ -215,7 +215,7 @@ export default function TreeSection() {
         <div className="bg-white/10 backdrop-blur-sm p-6 rounded-2xl">
           <div className="text-sm opacity-80 mb-2">{t('fruitCount')}</div>
           <div className="text-4xl font-bold">
-            <span className="animate-bounce-slow inline-block">🎁</span> {treeInfo.fruits.toString()}
+            <span className="animate-bounce-slow inline-block">🍎</span> {treeInfo.fruits.toString()}
           </div>
         </div>
         
@@ -229,12 +229,12 @@ export default function TreeSection() {
               <div className="text-4xl font-bold text-green-400 animate-pulse">
                 {decryptedPoints.toString()}
               </div>
-              <div className="text-xs mt-2 opacity-60">✅ 已解密</div>
+              <div className="text-xs mt-2 opacity-60">{t('alreadyDecrypted')}</div>
             </div>
           ) : (
             <div>
-              <div className="text-3xl font-mono opacity-50">🔐 ****</div>
-              <div className="text-xs mt-2 opacity-60">🔒 已加密</div>
+              <div className="text-3xl font-mono opacity-50">{t('encryptedData')}</div>
+              <div className="text-xs mt-2 opacity-60">🔒 {t('encrypted')}</div>
             </div>
           )}
         </div>
@@ -280,18 +280,18 @@ export default function TreeSection() {
           className="bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-4 px-8 rounded-full text-lg transition-all hover:scale-105 hover:shadow-xl"
         >
           {isDecryptingPoints 
-            ? '🔓 解密中...' 
+            ? t('decrypting')
             : decryptedPoints !== null 
-              ? '✅ 已解密' 
+              ? t('alreadyDecrypted')
               : isReady 
-                ? '🔐 解密积分'
-                : '⏳ 加载中...'}
+                ? t('decryptButton')
+                : t('fhevmLoadingButton')}
         </button>
       </div>
 
       {!isReady && treeInfo.exists && (
         <div className="mb-4 p-3 bg-yellow-500/20 border-2 border-yellow-500/50 rounded-lg animate-pulse">
-          <div className="text-sm">⚠️ FHE实例加载中，请稍候...</div>
+          <div className="text-sm">{t('fhevmWarning')}</div>
         </div>
       )}
 

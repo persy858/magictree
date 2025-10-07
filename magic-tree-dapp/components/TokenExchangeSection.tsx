@@ -25,7 +25,7 @@ export default function TokenExchangeSection() {
   const [decryptedPoints, setDecryptedPoints] = useState<bigint | null>(null);
   const [isDecrypting, setIsDecrypting] = useState(false);
 
-  const { storage } = useInMemoryStorage(); // ✅ 获取内存存储
+  const { storage } = useInMemoryStorage();
 
   // 获取代币信息
   useEffect(() => {
@@ -73,7 +73,7 @@ export default function TokenExchangeSection() {
   const handleDecryptPoints = async () => {
     if (!fhevmInstance || !contract || !signer || !treeInfo?.encryptedPoints) {
       setMessage({ 
-        text: t('fhevmNotReady') || 'FHE实例未就绪', 
+        text: t('fheNotReady'), 
         type: 'error' 
       });
       return;
@@ -82,7 +82,7 @@ export default function TokenExchangeSection() {
     try {
       setIsDecrypting(true);
       setMessage({ 
-        text: t('decryptingPoints') || '正在解密积分...', 
+        text: t('decryptingPoints'), 
         type: 'info' 
       });
 
@@ -115,13 +115,13 @@ export default function TokenExchangeSection() {
       setDecryptedPoints(points);
       
       setMessage({ 
-        text: `${t('decryptSuccess') || '解密成功'}: ${points} ${t('points')}`, 
+        text: `${t('decryptSuccess')}: ${points} ${t('points')}`, 
         type: 'success' 
       });
     } catch (error: any) {
       console.error('Decrypt error:', error);
       setMessage({ 
-        text: `${t('decryptFailed') || '解密失败'}: ${error.message}`, 
+        text: `${t('decryptFailed')}: ${error.message}`, 
         type: 'error' 
       });
     } finally {
@@ -150,13 +150,13 @@ export default function TokenExchangeSection() {
     
     try {
       setLoading(true);
-      setMessage({ text: t('exchanging') || '准备兑换...', type: 'info' });
+      setMessage({ text: t('preparingExchange'), type: 'info' });
       
       const contractAddress = await contract.getAddress();
       const signerAddress = await signer.getAddress();
 
       // 🔥 步骤1: 创建加密输入
-      setMessage({ text: '创建加密输入...', type: 'info' });
+      setMessage({ text: t('creatingEncryptedInput'), type: 'info' });
       const input = fhevmInstance.createEncryptedInput(
         contractAddress,
         signerAddress
@@ -164,10 +164,10 @@ export default function TokenExchangeSection() {
       input.add32(points);
 
       // 🔥 步骤2: 执行加密
-      setMessage({ text: '正在加密数据...', type: 'info' });
+      setMessage({ text: t('encryptingData'), type: 'info' });
       const encrypted = await input.encrypt();
 
-      console.log('🔐 Encrypted exchange input:', {
+      console.log('🔒 Encrypted exchange input:', {
         points: points,
         handle: encrypted.handles[0],
         handleType: typeof encrypted.handles[0],
@@ -179,7 +179,7 @@ export default function TokenExchangeSection() {
       // 参数1: encrypted.handles[0] - externalEuint32 (加密的积分)
       // 参数2: encrypted.inputProof - bytes (加密证明)
       // 参数3: points - uint256 (明文积分数量，用于计算代币)
-      setMessage({ text: t('txSubmitted') || '发送交易...', type: 'info' });
+      setMessage({ text: t('sendingTransaction'), type: 'info' });
       const tx = await contract.redeemTokens(
         encrypted.handles[0],      // externalEuint32 inputEuint32
         encrypted.inputProof,      // bytes calldata inputProof
@@ -226,9 +226,9 @@ export default function TokenExchangeSection() {
       // 更详细的错误信息
       let errorMessage = error.message;
       if (error.message.includes('insufficient')) {
-        errorMessage = '积分不足，请确保输入的积分数量不超过您的余额';
+        errorMessage = t('pointsInsufficientCheck');
       } else if (error.message.includes('underflow')) {
-        errorMessage = '积分不足导致下溢，请检查您的积分余额';
+        errorMessage = t('pointsInsufficientUnderflow');
       }
       
       setMessage({ text: `${t('exchangeFailed')} ${errorMessage}`, type: 'error' });
@@ -307,18 +307,18 @@ export default function TokenExchangeSection() {
                 onClick={() => setDecryptedPoints(null)}
                 className="text-xs opacity-60 mt-1 hover:opacity-100 transition-opacity"
               >
-                ✅ {t('decrypted') || '已解密'} • 点击隐藏
+                ✅ {t('decrypted')} • {t('clickToHide')}
               </button>
             </div>
           ) : (
             <div>
-              <div className="text-2xl font-mono opacity-50 mb-2">🔒 ****</div>
+              <div className="text-2xl font-mono opacity-50 mb-2">{t('encryptedData')}</div>
               <button
                 onClick={handleDecryptPoints}
                 disabled={isDecrypting || !isReady}
                 className="text-xs bg-purple-500/30 hover:bg-purple-500/50 px-3 py-1 rounded-full transition-all disabled:opacity-30"
               >
-                {isDecrypting ? '⏳ 解密中...' : !isReady ? '⏳ 加载中...' : '🔓 点击解密'}
+                {isDecrypting ? t('decrypting') : !isReady ? t('fhevmLoadingButton') : t('clickToDecrypt')}
               </button>
             </div>
           )}
@@ -329,7 +329,7 @@ export default function TokenExchangeSection() {
       {!isReady && (
         <div className="mb-6 p-3 bg-yellow-500/20 border-2 border-yellow-500/50 rounded-lg animate-pulse">
           <div className="text-sm">
-            ⚠️ {t('fhevmLoading') || 'FHE实例加载中，请稍候...'}
+            {t('fhevmWarning')}
           </div>
         </div>
       )}
@@ -353,7 +353,7 @@ export default function TokenExchangeSection() {
                 setPointsToExchange(decryptedPoints.toString());
               } else {
                 setMessage({ 
-                  text: t('decryptFirst') || '请先解密查看积分', 
+                  text: t('decryptFirst'), 
                   type: 'error' 
                 });
               }
@@ -374,7 +374,7 @@ export default function TokenExchangeSection() {
         )}
       </div>
 
-      {/* 兑换按钮 - 添加FHE状态检查 */}
+      {/* 兑换按钮 - 添加 FHE状态检查 */}
       <button
         onClick={handleExchange}
         disabled={
@@ -389,10 +389,10 @@ export default function TokenExchangeSection() {
         {loading 
           ? t('exchanging') 
           : !isReady 
-            ? '⏳ FHE加载中...'
+            ? t('fhevmLoadingButton')
             : tokenRemaining <= 0 
               ? t('allTokensMinted') 
-              : '🔐 ' + t('exchangeTokens') + ' (FHE加密)'}
+              : t('exchangeTokensFHE')}
       </button>
 
       {/* 消息提示 */}
@@ -413,14 +413,14 @@ export default function TokenExchangeSection() {
       {/* 说明文字 */}
       <div className="mt-8 p-6 bg-white/5 backdrop-blur-sm rounded-2xl text-sm opacity-70">
         <div className="mb-3">
-          <strong className="text-purple-300">🔒 FHE隐私保护说明：</strong>
+          <strong className="text-purple-300">{t('fhePrivacyTitle')}</strong>
         </div>
         <ul className="space-y-1 ml-6 mb-4">
-          <li>• 你的积分数量完全加密，其他人无法查看</li>
-          <li>• 点击"解密"按钮可查看自己的明文积分</li>
-          <li>• 兑换时系统会自动加密你的输入数据</li>
-          <li>• FHE技术确保交易安全且隐私</li>
-          <li>• 合约会自动验证你是否有足够的积分（加密状态下）</li>
+          <li>{t('fhePrivacyPoint1')}</li>
+          <li>{t('fhePrivacyPoint2')}</li>
+          <li>{t('fhePrivacyPoint3')}</li>
+          <li>{t('fhePrivacyPoint4')}</li>
+          <li>{t('fhePrivacyPoint5')}</li>
         </ul>
         
         <div className="mb-2">📊 <strong>{t('exchangeRateTiers')}</strong></div>
