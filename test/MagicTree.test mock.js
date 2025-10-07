@@ -3,7 +3,7 @@ import hre from "hardhat";
 const { ethers } = hre;
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 
-describe("MagicTreeFHE with Token", function () {
+describe("MagicTreeMock (Local Testing)", function () {
   let magicTree;
   let magicToken;
   let owner;
@@ -18,9 +18,10 @@ describe("MagicTreeFHE with Token", function () {
     const MagicToken = await ethers.getContractFactory("MagicToken");
     magicToken = await MagicToken.deploy();
     
-    // 2. 部署 MagicTreeFHE（传入 token 地址）
-    const MagicTreeFHE = await ethers.getContractFactory("MagicTreeFHE");
-    magicTree = await MagicTreeFHE.deploy(await magicToken.getAddress());
+    // 2. 部署 MagicTreeMock（用于本地测试）
+    // 注意：真实部署时使用 MagicTreeFHE
+    const MagicTreeMock = await ethers.getContractFactory("MagicTreeMock");
+    magicTree = await MagicTreeMock.deploy(await magicToken.getAddress());
     
     // 3. 设置 minter
     await magicToken.setMinter(await magicTree.getAddress());
@@ -136,7 +137,7 @@ describe("MagicTreeFHE with Token", function () {
     });
   });
 
-  describe("🔥 采摘果实（FHE版本）", function () {
+  describe("采摘果实（Mock版本）", function () {
     beforeEach(async function () {
       await magicTree.connect(addr1).mintTree({ value: ethers.parseEther("0.01") });
       await magicTree.connect(addr1).fertilize();
@@ -150,19 +151,20 @@ describe("MagicTreeFHE with Token", function () {
       await magicTree.connect(addr1).harvestFruit();
       const treeInfo = await magicTree.getTreeInfo(addr1.address);
       expect(treeInfo.fruits).to.equal(0);
-      // 🔥 FHE版本：无法直接检查明文积分
     });
 
-    it("🔥 应该返回加密的积分handle", async function () {
+    it("应该增加积分（Mock版本使用明文）", async function () {
+      const treeBefore = await magicTree.getTreeInfo(addr1.address);
+      expect(treeBefore.encryptedPoints).to.equal(0);
+      
       await magicTree.connect(addr1).harvestFruit();
       
-      // 获取加密handle
-      const encryptedPoints = await magicTree.connect(addr1).getEncryptedPoints();
+      const treeAfter = await magicTree.getTreeInfo(addr1.address);
+      // Mock版本：积分应该在100-500之间
+      expect(treeAfter.encryptedPoints).to.be.gte(100);
+      expect(treeAfter.encryptedPoints).to.be.lte(500);
       
-      // handle应该是非零值
-      expect(encryptedPoints).to.not.equal(0);
-      
-      console.log("      Encrypted points handle:", encryptedPoints.toString());
+      console.log("      Points gained:", treeAfter.encryptedPoints.toString());
     });
 
     it("应该拒绝无果实时采摘", async function () {
@@ -172,8 +174,7 @@ describe("MagicTreeFHE with Token", function () {
       ).to.be.revertedWith("No fruits to harvest");
     });
 
-    it("🔥 FruitDecomposed事件不应包含积分", async function () {
-      // FHE版本的事件只包含 owner 和 timestamp
+    it("FruitDecomposed事件不应包含积分", async function () {
       await expect(
         magicTree.connect(addr1).harvestFruit()
       ).to.emit(magicTree, "FruitDecomposed")
@@ -201,7 +202,7 @@ describe("MagicTreeFHE with Token", function () {
     });
   });
 
-  describe("🔥 代币兑换 - FHE版本（需要FHEVM环境）", function () {
+  describe("代币兑换 - Mock版本", function () {
     beforeEach(async function () {
       // addr1 mint 神树并获得积分
       await magicTree.connect(addr1).mintTree({ value: ethers.parseEther("0.01") });
@@ -213,58 +214,71 @@ describe("MagicTreeFHE with Token", function () {
         await magicTree.connect(addr1).fertilize();
       }
       
-      // 采摘果实获得加密积分
+      // 采摘果实获得积分
       await time.increase(31);
       await magicTree.connect(addr1).harvestFruit();
     });
 
-    it("🔥 redeemTokens 需要3个参数（跳过 - 需要FHEVM环境）", async function () {
-      // 注意：这个测试需要完整的FHEVM环境
-      // 在标准Hardhat测试中无法执行FHE加密
-      // 需要部署到Zama网络或使用FHEVM模拟器
+    it("应该能够成功兑换代币", async function () {
+      const treeInfo = await magicTree.getTreeInfo(addr1.address);
+      const points = treeInfo.encryptedPoints;
+      const pointsToSpend = points / 2n; // 花费一半积分
       
-      console.log("      ⚠️  FHE encryption tests require FHEVM environment");
-      console.log("      Deploy to Zama Devnet for full FHE testing");
-      console.log("      ");
-      console.log("      Expected function signature:");
-      console.log("      redeemTokens(uint256 inputEuint32, bytes inputProof, uint256 decryptedAmount)");
-      console.log("      ");
-      console.log("      Parameters:");
-      console.log("      - inputEuint32: externalEuint32 (encrypted points input)");
-      console.log("      - inputProof: bytes (encryption proof)");
-      console.log("      - decryptedAmount: uint256 (plaintext amount for token calculation)");
+      const rate = await magicTree.getCurrentExchangeRate();
+      const expectedTokens = (pointsToSpend * ethers.parseEther("1")) / rate;
       
-      this.skip();
+      await magicTree.connect(addr1).redeemTokens(pointsToSpend);
+      
+      // 验证积分减少
+      const treeAfter = await magicTree.getTreeInfo(addr1.address);
+      expect(treeAfter.encryptedPoints).to.equal(points - pointsToSpend);
+      
+      // 验证代币增加
+      const tokenBalance = await magicToken.balanceOf(addr1.address);
+      expect(tokenBalance).to.equal(expectedTokens);
+      
+      console.log("      Points spent:", pointsToSpend.toString());
+      console.log("      Tokens received:", ethers.formatEther(tokenBalance));
     });
 
-    it("🔥 应该拒绝未加密的直接调用", async function () {
-      // FHE版本的redeemTokens需要加密输入
-      // 直接传入普通数字会失败
+    it("应该拒绝积分不足的兑换", async function () {
+      const treeInfo = await magicTree.getTreeInfo(addr1.address);
+      const points = treeInfo.encryptedPoints;
       
-      // 注意：这个测试在标准环境下会因为参数类型不匹配而失败
-      // 实际测试需要在FHEVM环境中进行
-      
-      console.log("      ℹ️  This test requires FHEVM environment");
-      console.log("      In production, calling redeemTokens with non-encrypted data will fail");
-      
-      this.skip();
+      await expect(
+        magicTree.connect(addr1).redeemTokens(points + 100n)
+      ).to.be.revertedWith("Insufficient points");
     });
 
-    it("🔥 应该在余额不足时revert（依赖FHE.sub下溢）", async function () {
-      // FHE版本通过 FHE.sub 的下溢来保护余额
-      // 当 tree.points < pointsToSpend 时，FHE.sub 会导致下溢并 revert
+    it("应该触发TokensRedeemed事件", async function () {
+      const treeInfo = await magicTree.getTreeInfo(addr1.address);
+      const pointsToSpend = 100n;
       
-      console.log("      ℹ️  FHE.sub provides underflow protection");
-      console.log("      If tree.points < pointsToSpend, transaction will revert");
-      console.log("      This ensures users cannot spend more than they have");
-      
-      this.skip();
+      await expect(
+        magicTree.connect(addr1).redeemTokens(pointsToSpend)
+      ).to.emit(magicTree, "TokensRedeemed");
+    });
+
+    it("应该拒绝0积分的兑换", async function () {
+      await expect(
+        magicTree.connect(addr1).redeemTokens(0)
+      ).to.be.revertedWith("Points must be greater than 0");
     });
   });
 
-  describe("🔥 代币兑换 - 边界情况（模拟）", function () {
-    beforeEach(async function () {
+  describe("排行榜（Mock版本可用）", function () {
+    it("初始状态应该没有玩家", async function () {
+      const totalPlayers = await magicTree.getTotalPlayers();
+      expect(totalPlayers).to.equal(0);
+    });
+
+    it("应该返回排序后的排行榜", async function () {
+      // 创建多个玩家
       await magicTree.connect(addr1).mintTree({ value: ethers.parseEther("0.01") });
+      await magicTree.connect(addr2).mintTree({ value: ethers.parseEther("0.01") });
+      await magicTree.connect(addr3).mintTree({ value: ethers.parseEther("0.01") });
+      
+      // addr1 获得1个果实
       await magicTree.connect(addr1).fertilize();
       for (let i = 1; i < 5; i++) {
         await time.increase(31);
@@ -272,23 +286,37 @@ describe("MagicTreeFHE with Token", function () {
       }
       await time.increase(31);
       await magicTree.connect(addr1).harvestFruit();
-    });
-
-    it("应该拒绝未 mint 神树的用户兑换", async function () {
-      // FHE版本同样需要检查树是否存在
-      // 但无法直接测试，因为需要FHE加密输入
       
-      console.log("      ⚠️  Skipped - requires FHE environment");
-      console.log("      Contract checks: tree.exists must be true");
-      this.skip();
-    });
-
-    it("应该拒绝 0 积分的兑换", async function () {
-      // 合约检查: decryptedAmount > 0
+      // addr2 获得2个果实（更多积分）
+      await magicTree.connect(addr2).fertilize();
+      for (let i = 1; i < 5; i++) {
+        await time.increase(31);
+        await magicTree.connect(addr2).fertilize();
+      }
+      await time.increase(31);
+      await magicTree.connect(addr2).harvestFruit();
       
-      console.log("      ⚠️  Skipped - requires FHE environment");
-      console.log("      Contract checks: decryptedAmount must be > 0");
-      this.skip();
+      // 再获得第二个果实
+      for (let i = 0; i < 5; i++) {
+        await time.increase(31);
+        await magicTree.connect(addr2).fertilize();
+      }
+      await time.increase(31);
+      await magicTree.connect(addr2).harvestFruit();
+      
+      const leaderboard = await magicTree.getLeaderboard(10);
+      
+      // 验证排序（addr2应该在前面因为积分更多）
+      expect(leaderboard.addresses[0]).to.equal(addr2.address);
+      expect(leaderboard.points[0]).to.be.gt(leaderboard.points[1]);
+      
+      console.log("      📊 Mock Leaderboard (plaintext points):");
+      for (let i = 0; i < Math.min(3, leaderboard.addresses.length); i++) {
+        console.log(`      ${i+1}. ${leaderboard.addresses[i]}: ${leaderboard.points[i]} points`);
+      }
+      console.log("      ");
+      console.log("      ℹ️  Note: FHE version cannot implement on-chain leaderboard");
+      console.log("      Real deployment uses off-chain indexing for rankings");
     });
   });
 
@@ -398,32 +426,32 @@ describe("MagicTreeFHE with Token", function () {
     });
   });
 
-  describe("🔥 FHE功能验证", function () {
-    it("getEncryptedPoints应该返回handle", async function () {
+  describe("Mock功能验证", function () {
+    it("getEncryptedPoints应该返回明文积分", async function () {
       await magicTree.connect(addr1).mintTree({ value: ethers.parseEther("0.01") });
       
-      // 初始应该返回0的加密handle
-      const handle = await magicTree.connect(addr1).getEncryptedPoints();
-      expect(handle).to.not.be.undefined;
+      // 初始应该返回0
+      const points = await magicTree.connect(addr1).getEncryptedPoints();
+      expect(points).to.equal(0);
       
-      console.log("      Initial encrypted handle:", handle.toString());
+      console.log("      Initial points (plaintext in Mock):", points.toString());
     });
 
-    it("getTreeInfo应该返回加密的points", async function () {
+    it("getTreeInfo应该返回明文积分", async function () {
       await magicTree.connect(addr1).mintTree({ value: ethers.parseEther("0.01") });
       
       const treeInfo = await magicTree.getTreeInfo(addr1.address);
       
-      // encryptedPoints字段存在
-      expect(treeInfo.encryptedPoints).to.not.be.undefined;
+      // Mock版本：encryptedPoints实际是明文
+      expect(treeInfo.encryptedPoints).to.equal(0);
       
-      console.log("      TreeInfo encryptedPoints:", treeInfo.encryptedPoints.toString());
+      console.log("      TreeInfo points (plaintext in Mock):", treeInfo.encryptedPoints.toString());
     });
 
-    it("采摘果实后handle应该改变", async function () {
+    it("采摘果实后积分应该增加", async function () {
       await magicTree.connect(addr1).mintTree({ value: ethers.parseEther("0.01") });
       
-      const handleBefore = await magicTree.connect(addr1).getEncryptedPoints();
+      const pointsBefore = await magicTree.connect(addr1).getEncryptedPoints();
       
       // 获得果实并采摘
       await magicTree.connect(addr1).fertilize();
@@ -434,13 +462,20 @@ describe("MagicTreeFHE with Token", function () {
       await time.increase(31);
       await magicTree.connect(addr1).harvestFruit();
       
-      const handleAfter = await magicTree.connect(addr1).getEncryptedPoints();
+      const pointsAfter = await magicTree.connect(addr1).getEncryptedPoints();
       
-      // handle应该不同（因为积分增加了）
-      expect(handleAfter).to.not.equal(handleBefore);
+      // 积分应该增加
+      expect(pointsAfter).to.be.gt(pointsBefore);
+      expect(pointsAfter).to.be.gte(100);
+      expect(pointsAfter).to.be.lte(500);
       
-      console.log("      Handle before harvest:", handleBefore.toString());
-      console.log("      Handle after harvest:", handleAfter.toString());
+      console.log("      Points before harvest:", pointsBefore.toString());
+      console.log("      Points after harvest:", pointsAfter.toString());
+      console.log("      ");
+      console.log("      ℹ️  In real FHE deployment:");
+      console.log("      - Points are encrypted on-chain");
+      console.log("      - Only the user can decrypt their own points");
+      console.log("      - Comparison operations happen in encrypted space");
     });
   });
 

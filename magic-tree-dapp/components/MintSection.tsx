@@ -23,10 +23,8 @@ export default function MintSection() {
       
       await tx.wait();
       setMessage({ text: t('mintSuccess'), type: 'success' });
-      
-      setTimeout(() => {
-        refreshTreeInfo();
-      }, 2000);
+
+      refreshTreeInfo();
     } catch (error: any) {
       console.error('Mint error:', error);
       setMessage({ text: `${t('mintFailed')} ${error.message}`, type: 'error' });

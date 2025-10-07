@@ -13,7 +13,7 @@ export const translations = {
       totalPoints: "总积分",
       cooldownPrefix: "⏱️ 冷却中:",
       cooldownSuffix: "秒",
-      fertilizeButton: "🌿 施肥 (需要Gas)",
+      fertilizeButton: "🌿 施肥 (仅需要Gas)",
       harvestButton: "🍎 采摘果实",
       
       installMetaMask: "请安装MetaMask钱包!",
@@ -103,7 +103,7 @@ export const translations = {
       totalPoints: "Total Points",
       cooldownPrefix: "⏱️ Cooldown:",
       cooldownSuffix: "s",
-      fertilizeButton: "🌿 Fertilize (Gas Required)",
+      fertilizeButton: "🌿 Fertilize (Gas Only)",
       harvestButton: "🍎 Harvest Fruit",
       
       installMetaMask: "Please install MetaMask wallet!",

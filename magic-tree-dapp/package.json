@@ -9,12 +9,17 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "ethers": "^6.9.0",
     "next": "^14.0.0",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "@zama-fhe/relayer-sdk": "0.2.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "ethers": "6.15.0",
+    "idb": "^8.0.3"
   },
   "devDependencies": {
+    "@fhevm/mock-utils": "0.1.0",
     "@types/node": "^20.0.0",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",

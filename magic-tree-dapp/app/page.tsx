@@ -1,3 +1,4 @@
+// app/page.tsx
 'use client';
 
 import { useState } from 'react';
@@ -7,12 +8,13 @@ import LanguageSwitcher from '@/components/LanguageSwitcher';
 import WalletSection from '@/components/WalletSection';
 import MintSection from '@/components/MintSection';
 import TreeSection from '@/components/TreeSection';
-import Leaderboard from '@/components/Leaderboard';
 import TokenExchangeSection from '@/components/TokenExchangeSection';
+import FHEVMInitializer from '@/components/FHEVMInitializer';
 
 export default function Home() {
   const { isConnected, treeInfo } = useWeb3();
   const { t } = useLanguage();
+  const [fhevmReady, setFhevmReady] = useState(false);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-600 via-purple-700 to-purple-900 text-white p-5">
@@ -32,11 +34,22 @@ export default function Home() {
 
         {isConnected && (
           <>
-            {!treeInfo?.exists && <MintSection />}
-            {treeInfo?.exists && <TreeSection />}
+            {/* 步骤1: 优先执行 FHEVM 初始化 */}
+            <FHEVMInitializer onReady={setFhevmReady} />
             
-                      <TokenExchangeSection />
-                      <Leaderboard />                      
+            {/* 步骤2: 等待 FHEVM ready 后才渲染其他组件 */}
+            {fhevmReady ? (
+              <>
+                {!treeInfo?.exists && <MintSection />}
+                {treeInfo?.exists && <TreeSection />}
+                {treeInfo?.exists && <TokenExchangeSection />}
+              </>
+            ) : (
+              // FHEVM 未就绪时的占位符（可选）
+              <div className="bg-white/10 backdrop-blur-md rounded-3xl p-10 text-center opacity-50">
+                <div className="text-lg">等待 FHE 系统初始化...</div>
+              </div>
+            )}
           </>
         )}
       </div>

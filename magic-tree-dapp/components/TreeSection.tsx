@@ -3,13 +3,24 @@
 import { useState, useEffect } from 'react';
 import { useWeb3 } from '@/contexts/Web3Context';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useFHEVM } from '@/hooks/useFHEVM';
+import { useInMemoryStorage } from '@/hooks/useInMemoryStorage';
 
 export default function TreeSection() {
-  const { contract, treeInfo, refreshTreeInfo } = useWeb3();
+  const { contract, treeInfo, refreshTreeInfo, signer, account } = useWeb3();
   const { t } = useLanguage();
   const [message, setMessage] = useState<{ text: string; type: string }>({ text: '', type: '' });
   const [loading, setLoading] = useState(false);
   const [cooldown, setCooldown] = useState(0);
+
+  // FHE相关状态
+  const [isDecryptingPoints, setIsDecryptingPoints] = useState(false);
+  const [decryptedPoints, setDecryptedPoints] = useState<bigint | null>(null);
+
+  // 使用FHEVM实例
+  const { fhevmInstance, isReady } = useFHEVM();
+
+  const { storage } = useInMemoryStorage(); // ✅ 获取内存存储
 
   useEffect(() => {
     if (treeInfo && treeInfo.cooldownRemaining > 0n) {
@@ -32,6 +43,96 @@ export default function TreeSection() {
     }
   }, [cooldown]);
 
+  // 当treeInfo变化时，清空解密的积分
+  useEffect(() => {
+    if (treeInfo?.encryptedPoints) {
+      setDecryptedPoints(null);
+    }
+  }, [treeInfo?.encryptedPoints]);
+
+  // 解密积分函数
+  const handleDecryptPoints = async () => {
+    if (!fhevmInstance || !contract || !signer || !treeInfo?.encryptedPoints) {
+      setMessage({ 
+        text: 'FHE实例未就绪或无加密数据', 
+        type: 'error' 
+      });
+      return;
+    }
+
+    console.log("==========treeInfo");
+    console.log(treeInfo);
+
+    try {
+      setIsDecryptingPoints(true);
+      setMessage({ 
+        text: '正在解密积分...', 
+        type: 'info' 
+      });
+
+      const { FhevmDecryptionSignature } = await import('../fhevm-react');
+      
+      const contractAddress = await contract.getAddress();
+      
+      const sig = await FhevmDecryptionSignature.loadOrSign(
+        fhevmInstance,
+        [contractAddress as `0x${string}`],
+        signer,
+        storage
+      );
+
+
+      if (!sig) {
+        throw new Error('Failed to create decryption signature');
+      }
+
+  
+
+      console.log("============fhevmInstance", fhevmInstance);
+      console.log("============storage", storage);
+      console.log("============signer", signer);
+      console.log("============sig", sig);
+      console.log("Encrypted points:", treeInfo.encryptedPoints);
+      console.log("encryptedPoints Type:", typeof treeInfo.encryptedPoints);
+      console.log("encryptedPoints length:", treeInfo.encryptedPoints.length);
+
+      const decryptedData = await fhevmInstance.userDecrypt(
+        [{ 
+          handle: treeInfo.encryptedPoints, 
+          contractAddress 
+        }],
+        sig.privateKey,
+        sig.publicKey,
+        sig.signature,
+        sig.contractAddresses,
+        sig.userAddress,
+        sig.startTimestamp,
+        sig.durationDays
+      );
+
+      console.log("decryptedData:", decryptedData);
+      console.log(" decryptedData Type:", typeof decryptedData);
+
+      const points = BigInt(decryptedData[treeInfo.encryptedPoints]);
+      setDecryptedPoints(points);
+
+      console.log(points)
+      
+      setMessage({ 
+        text: `解密成功: ${points} 积分`, 
+        type: 'success' 
+      });
+    } catch (error: any) {
+      console.error('Decrypt error:', error);
+      setMessage({ 
+        text: `解密失败: ${error.message}`, 
+        type: 'error' 
+      });
+    } finally {
+      setIsDecryptingPoints(false);
+    }
+  };
+
   const handleFertilize = async () => {
     if (!contract) return;
     
@@ -44,7 +145,6 @@ export default function TreeSection() {
       
       const receipt = await tx.wait();
       
-      // 检查是否产生果实
       const fruitEvent = receipt.logs.find((log: any) => {
         try {
           const parsed = contract.interface.parseLog(log);
@@ -60,9 +160,8 @@ export default function TreeSection() {
         setMessage({ text: t('fertilizeSuccess'), type: 'success' });
       }
       
-      setTimeout(() => {
-        refreshTreeInfo();
-      }, 2000);
+      refreshTreeInfo();
+
     } catch (error: any) {
       console.error('Fertilize error:', error);
       setMessage({ text: `${t('fertilizeFailed')} ${error.message}`, type: 'error' });
@@ -81,30 +180,18 @@ export default function TreeSection() {
       const tx = await contract.harvestFruit();
       setMessage({ text: t('txSubmitted'), type: 'info' });
       
-      const receipt = await tx.wait();
+      await tx.wait();
       
-      // 解析获得的积分
-      const decomposeEvent = receipt.logs.find((log: any) => {
-        try {
-          const parsed = contract.interface.parseLog(log);
-          return parsed?.name === 'FruitDecomposed';
-        } catch {
-          return false;
-        }
+      setMessage({ 
+        text: '果实采摘成功！积分已加密增加', 
+        type: 'success' 
       });
       
-      if (decomposeEvent) {
-        const parsed = contract.interface.parseLog(decomposeEvent);
-        const points = parsed?.args.points;
-        setMessage({ 
-          text: `${t('harvestSuccess')} ${points} ${t('harvestSuccessSuffix')}`, 
-          type: 'success' 
-        });
-      }
+      setDecryptedPoints(null);
       
-      setTimeout(() => {
-        refreshTreeInfo();
-      }, 2000);
+
+      refreshTreeInfo();
+
     } catch (error: any) {
       console.error('Harvest error:', error);
       setMessage({ text: `${t('harvestFailed')} ${error.message}`, type: 'error' });
@@ -128,13 +215,28 @@ export default function TreeSection() {
         <div className="bg-white/10 backdrop-blur-sm p-6 rounded-2xl">
           <div className="text-sm opacity-80 mb-2">{t('fruitCount')}</div>
           <div className="text-4xl font-bold">
-            <span className="animate-bounce-slow inline-block">🍎</span> {treeInfo.fruits.toString()}
+            <span className="animate-bounce-slow inline-block">🎁</span> {treeInfo.fruits.toString()}
           </div>
         </div>
         
         <div className="bg-white/10 backdrop-blur-sm p-6 rounded-2xl">
-          <div className="text-sm opacity-80 mb-2">{t('totalPoints')}</div>
-          <div className="text-4xl font-bold">{treeInfo.points.toString()}</div>
+          <div className="text-sm opacity-80 mb-2 flex items-center justify-center gap-2">
+            {t('totalPoints')}
+            <span className="text-xs bg-purple-500/50 px-2 py-1 rounded-full">🔒 FHE</span>
+          </div>
+          {decryptedPoints !== null ? (
+            <div>
+              <div className="text-4xl font-bold text-green-400 animate-pulse">
+                {decryptedPoints.toString()}
+              </div>
+              <div className="text-xs mt-2 opacity-60">✅ 已解密</div>
+            </div>
+          ) : (
+            <div>
+              <div className="text-3xl font-mono opacity-50">🔐 ****</div>
+              <div className="text-xs mt-2 opacity-60">🔒 已加密</div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -150,7 +252,7 @@ export default function TreeSection() {
         </div>
       )}
 
-      <div className="flex flex-col sm:flex-row gap-4 justify-center mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <button
           onClick={handleFertilize}
           disabled={loading || cooldown > 0 || (treeInfo.dailyFertilizeRemaining !== undefined && treeInfo.dailyFertilizeRemaining === 0n)}
@@ -164,9 +266,34 @@ export default function TreeSection() {
           disabled={loading || treeInfo.fruits === 0n}
           className="bg-gradient-to-r from-cyan-500 to-pink-500 hover:from-cyan-600 hover:to-pink-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-4 px-8 rounded-full text-lg transition-all hover:scale-105 hover:shadow-xl"
         >
-          {t('harvestButton')}
+          {loading ? '⏳' : t('harvestButton')}
+        </button>
+
+        <button
+          onClick={handleDecryptPoints}
+          disabled={
+            isDecryptingPoints || 
+            !isReady || 
+            !treeInfo.encryptedPoints || 
+            decryptedPoints !== null
+          }
+          className="bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-4 px-8 rounded-full text-lg transition-all hover:scale-105 hover:shadow-xl"
+        >
+          {isDecryptingPoints 
+            ? '🔓 解密中...' 
+            : decryptedPoints !== null 
+              ? '✅ 已解密' 
+              : isReady 
+                ? '🔐 解密积分'
+                : '⏳ 加载中...'}
         </button>
       </div>
+
+      {!isReady && treeInfo.exists && (
+        <div className="mb-4 p-3 bg-yellow-500/20 border-2 border-yellow-500/50 rounded-lg animate-pulse">
+          <div className="text-sm">⚠️ FHE实例加载中，请稍候...</div>
+        </div>
+      )}
 
       {message.text && (
         <div

@@ -10,7 +10,7 @@ const ETHERSCAN_API_KEY = vars.get("ETHERSCAN_API_KEY", "");
 /** @type import('hardhat/config').HardhatUserConfig */
 export default {
   solidity: {
-    version: "0.8.20",
+    version: "0.8.24",
     settings: {
       optimizer: {
         enabled: true,
