@@ -53,6 +53,7 @@ export const translations = {
     dailyLimitSuffix: "次",
     
     // 代币兑换
+    checkingExchange: "兑换准备中...",
     tokenExchange: "代币兑换",
     tokenSupplyRemaining: "代币剩余量",
     currentRate: "当前兑换比例",
@@ -90,6 +91,8 @@ export const translations = {
     equalTo: "=",
     
     // FHE 相关翻译
+    waitforFHE: "等待 FHE 系统初始化...",
+    FHEiniting: "正在初始化 FHE 加密系统...",
     fheNotReady: "FHE实例未就绪或无加密数据",
     decryptingPoints: "正在解密积分...",
     decryptSuccess: "解密成功",
@@ -180,6 +183,7 @@ export const translations = {
     dailyLimitSuffix: "times",
     
     // Token Exchange
+    checkingExchange: "Preparing for exchange...",
     tokenExchange: "Token Exchange",
     tokenSupplyRemaining: "Token Supply Remaining",
     currentRate: "Current Rate",
@@ -217,6 +221,8 @@ export const translations = {
     equalTo: "=",
     
     // FHE Related Translations
+    waitforFHE: "Waiting for the FHE system to initialize...",
+    FHEiniting: "Initializing the FHE encryption system...",
     fheNotReady: "FHE instance not ready or no encrypted data",
     decryptingPoints: "Decrypting points...",
     decryptSuccess: "Decryption successful",

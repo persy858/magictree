@@ -21,7 +21,7 @@ export function useFHEVM() {
     error: fhevmError,
   } = useFhevm({
     provider: rawProvider, // 使用原始的window.ethereum
-    chainId,
+    chainId: chainId ?? undefined, // ✅ 将 null 转换为 undefined
     enabled: !!rawProvider && !!chainId, // 只有当provider和chainId都存在时才启用
     initialMockChains: { // 关键是这个
     31337: "http://localhost:8545",

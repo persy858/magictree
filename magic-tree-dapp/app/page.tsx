@@ -47,7 +47,7 @@ export default function Home() {
             ) : (
               // FHEVM 未就绪时的占位符（可选）
               <div className="bg-white/10 backdrop-blur-md rounded-3xl p-10 text-center opacity-50">
-                <div className="text-lg">等待 FHE 系统初始化...</div>
+                <div className="text-lg">{t('waitforFHE')}</div>
               </div>
             )}
           </>

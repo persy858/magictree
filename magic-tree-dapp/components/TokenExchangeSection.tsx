@@ -131,6 +131,13 @@ export default function TokenExchangeSection() {
 
   // 🔥 更新：FHE版本的代币兑换（3个参数）
   const handleExchange = async () => {
+    // ✅ 第一件事：立即设置 loading
+    setLoading(true);
+    setMessage({ text: t('checkingExchange'), type: 'info' });
+    
+    // 使用 setTimeout 0 确保 UI 立即更新
+    await new Promise(resolve => setTimeout(resolve, 0));
+
     if (!contract || !fhevmInstance || !signer || !pointsToExchange) {
       setMessage({ text: t('invalidAmount'), type: 'error' });
       return;
@@ -147,10 +154,8 @@ export default function TokenExchangeSection() {
       setMessage({ text: t('insufficientPoints'), type: 'error' });
       return;
     }
-    
     try {
-      setLoading(true);
-      setMessage({ text: t('preparingExchange'), type: 'info' });
+
       
       const contractAddress = await contract.getAddress();
       const signerAddress = await signer.getAddress();
@@ -374,7 +379,7 @@ export default function TokenExchangeSection() {
         )}
       </div>
 
-      {/* 兑换按钮 - 添加 FHE状态检查 */}
+      {/* 兑换按钮 - 优化加载状态和即时反馈 */}
       <button
         onClick={handleExchange}
         disabled={
@@ -384,16 +389,50 @@ export default function TokenExchangeSection() {
           Number(pointsToExchange) <= 0 || 
           tokenRemaining <= 0
         }
-        className="w-full bg-gradient-to-r from-yellow-500 to-pink-500 hover:from-yellow-600 hover:to-pink-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-5 px-8 rounded-full text-xl transition-all hover:scale-105 hover:shadow-2xl"
+        className={`
+          w-full bg-gradient-to-r from-yellow-500 to-pink-500 
+          hover:from-yellow-600 hover:to-pink-600 
+          disabled:opacity-50 disabled:cursor-not-allowed 
+          text-white font-bold py-5 px-8 rounded-full text-xl 
+          transition-all duration-200
+          ${loading ? 'scale-95 opacity-80' : 'hover:scale-105'}
+          hover:shadow-2xl disabled:hover:scale-100
+          active:scale-95
+        `}
       >
-        {loading 
-          ? t('exchanging') 
-          : !isReady 
-            ? t('fhevmLoadingButton')
-            : tokenRemaining <= 0 
-              ? t('allTokensMinted') 
-              : t('exchangeTokensFHE')}
+        {loading ? (
+          <span className="flex items-center justify-center gap-3">
+            {/* 方案1: 脉冲效果（立即启动） */}
+            <span className="relative flex h-6 w-6">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-6 w-6 bg-white/30 items-center justify-center">
+                <span className="h-3 w-3 rounded-full bg-white"></span>
+              </span>
+            </span>
+            
+            {/* 方案2: 三点跳动（备选） - 取消注释使用 */}
+            {/* <span className="flex gap-1">
+              <span className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+              <span className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+              <span className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+            </span> */}
+            
+            <span>{t('exchanging')}</span>
+          </span>
+        ) : !isReady ? (
+          <span className="flex items-center justify-center gap-2">
+            <span className="animate-pulse">⏳</span>
+            <span>{t('fhevmLoadingButton')}</span>
+          </span>
+        ) : tokenRemaining <= 0 ? (
+          t('allTokensMinted')
+        ) : (
+          <span className="flex items-center justify-center gap-2">
+            {t('exchangeTokensFHE')}
+          </span>
+        )}
       </button>
+
 
       {/* 消息提示 */}
       {message.text && (
