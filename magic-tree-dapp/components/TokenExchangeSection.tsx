@@ -222,9 +222,7 @@ export default function TokenExchangeSection() {
       // 清空解密缓存（积分已改变）
       setDecryptedPoints(null);
       
-      setTimeout(() => {
-        refreshTreeInfo();
-      }, 2000);
+      refreshTreeInfo();
     } catch (error: any) {
       console.error('Exchange error:', error);
       
