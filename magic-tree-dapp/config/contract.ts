@@ -1,35 +1,46 @@
-// 合约配置文件 (FHE版本)
+// contract.ts - 完整更新版本
 export const MAGIC_TREE_ADDRESS = process.env.NEXT_PUBLIC_MAGIC_TREE_CONTRACT || "YOUR_MAGIC_TREE_ADDRESS_HERE";
 export const MAGIC_TOKEN_ADDRESS = process.env.NEXT_PUBLIC_MAGIC_TOKEN_CONTRACT || "YOUR_MAGIC_TOKEN_ADDRESS_HERE";
 
-// 🔥 MagicTree FHE 合约 ABI
+// 🔥 MagicTree FHE 合约 ABI（支持异步解密）
 export const MAGIC_TREE_ABI = [
-  // ========== 原有基础功能 ==========
+  // ========== 基础功能 ==========
   "function mintTree() external payable",
   "function fertilize() external",
   "function harvestFruit() external",
   
-  // 🔥 修改：getTreeInfo 返回加密的points (euint32)
-  // 注意：euint32 在ABI中表示为 uint256，但实际是加密handle
   "function getTreeInfo(address user) external view returns (bool exists, uint256 fertilizeCount, uint256 lastActionTime, uint256 fruits, uint256 encryptedPoints, uint256 cooldownRemaining, uint256 dailyFertilizeCount, uint256 dailyFertilizeRemaining)",
   
   "function getLeaderboard(uint256 limit) external pure returns (address[] addresses, uint256[] points, uint256[] fertilizeCounts)",
   "function getTotalPlayers() external view returns (uint256)",
   
-  // ========== 🔥 FHE 专用函数 ==========
-  
-  // 获取当前用户的加密积分handle
+  // ========== FHE 专用函数 ==========
   "function getEncryptedPoints() external view returns (uint256)",
   
-  // ========== 代币兑换功能 ==========
+  // ========== 🔥 代币兑换功能（两步异步解密） ==========
   
   "function getCurrentExchangeRate() public view returns (uint256)",
   
-  // 🔥 更新：redeemTokens 接收3个参数
-  // 参数1: inputEuint32 (externalEuint32 - 加密的积分输入)
-  // 参数2: inputProof (bytes - 加密证明)
-  // 参数3: decryptedAmount (uint256 - 解密后的明文积分，用于计算代币)
-  "function redeemTokens(bytes32 inputEuint32, bytes calldata inputProof, uint256 decryptedAmount) external",
+  // 🔥 步骤1：请求兑换代币
+  // 参数1: encryptedAmount (externalEuint32 - 加密的积分输入，在 ABI 中表示为 bytes32)
+  // 参数2: claimedAmount (uint256 - 用户声称的明文积分)
+  // 参数3: inputProof (bytes - 加密证明)
+  // 返回: redeemId (uint256 - 兑换请求ID)
+  "function requestRedeemTokens(bytes32 encryptedAmount, uint256 claimedAmount, bytes calldata inputProof) external returns (uint256)",
+  
+  // 🔥 步骤2：请求解密（触发 Oracle）
+  // 参数: redeemId (uint256 - 兑换请求ID)
+  "function requestDecryption(uint256 redeemId) external",
+  
+  // 🔥 步骤3：回调函数（由 Oracle 自动调用）
+  "function callbackRedeemTokens(uint256 requestId, bytes memory cleartexts, bytes memory decryptionProof) external",
+  
+  // 🔥 查询函数
+  "function getRedeemStatus(uint256 redeemId) external view returns (address user, uint256 claimedAmount, bool isResolved, uint32 revealedSpend, uint32 revealedTotal, uint256 decryptionRequestId)",
+  
+  "function isDecryptionRequested(uint256 redeemId) external view returns (bool)",
+  
+  "function getUserLatestRequest(address user) external view returns (uint256)",
   
   "function getTokenRemainingPercentage() external view returns (uint256)",
   "function magicToken() external view returns (address)",
@@ -41,19 +52,20 @@ export const MAGIC_TREE_ABI = [
   "function FERTILIZE_FOR_FRUIT() external view returns (uint256)",
   "function MAX_DAILY_FERTILIZE() external view returns (uint256)",
   
-  // ========== 原有事件 ==========
+  // ========== 事件 ==========
   "event TreeMinted(address indexed owner, uint256 timestamp)",
   "event TreeFertilized(address indexed owner, uint256 count, uint256 timestamp)",
   "event FruitHarvested(address indexed owner, uint256 fruitCount, uint256 timestamp)",
-  
-  // 🔥 修改：FruitDecomposed 不再包含明文积分（因为是加密的）
   "event FruitDecomposed(address indexed owner, uint256 timestamp)",
   
-  // 🔥 修改：TokensRedeemed 不再包含pointsSpent（因为是加密的）
-  "event TokensRedeemed(address indexed user, uint256 tokensReceived, uint256 timestamp)"
+  // 🔥 兑换相关事件
+  "event RedeemRequested(address indexed user, uint256 redeemId, uint256 claimedAmount, uint256 timestamp)",
+  "event DecryptionRequested(uint256 redeemId, uint256 decryptionRequestId)",
+  "event RedeemProcessed(address indexed user, uint256 redeemId, uint32 actualAmount, uint256 tokensReceived)",
+  "event RedeemFailed(address indexed user, uint256 redeemId, string reason)"
 ];
 
-// MagicToken 合约 ABI（与FHE无关，保持不变）
+// MagicToken 合约 ABI（保持不变）
 export const MAGIC_TOKEN_ABI = [
   "function name() view returns (string)",
   "function symbol() view returns (string)",
@@ -64,14 +76,10 @@ export const MAGIC_TOKEN_ABI = [
   "function allowance(address owner, address spender) view returns (uint256)",
   "function approve(address spender, uint256 amount) returns (bool)",
   "function transferFrom(address from, address to, uint256 amount) returns (bool)",
-  
-  // MagicToken 特有功能
   "function MAX_SUPPLY() view returns (uint256)",
   "function remainingSupply() view returns (uint256)",
   "function minter() view returns (address)",
   "function minterSet() view returns (bool)",
-  
-  // 事件
   "event Transfer(address indexed from, address indexed to, uint256 value)",
   "event Approval(address indexed owner, address indexed spender, uint256 value)"
 ];
@@ -79,15 +87,12 @@ export const MAGIC_TOKEN_ABI = [
 // 网络配置
 export const SEPOLIA_CHAIN_ID = 11155111;
 
-// 🔥 新增：支持的FHE网络
 export const SUPPORTED_FHE_CHAINS = {
-  // Zama Devnet
   8009: {
     name: "Zama Devnet",
     rpcUrl: "https://devnet.zama.ai",
     blockExplorer: "https://explorer.zama.ai"
   },
-  // Sepolia (如果部署了FHE合约)
   11155111: {
     name: "Sepolia Testnet",
     rpcUrl: "https://sepolia.infura.io/v3/YOUR_INFURA_KEY",
@@ -95,17 +100,16 @@ export const SUPPORTED_FHE_CHAINS = {
   }
 } as const;
 
-// 向后兼容
 export const CONTRACT_ADDRESS = MAGIC_TREE_ADDRESS;
 export const CONTRACT_ABI = MAGIC_TREE_ABI;
 
-// 🔥 类型定义：用于TypeScript类型检查
+// 🔥 类型定义
 export interface TreeInfo {
   exists: boolean;
   fertilizeCount: bigint;
   lastActionTime: bigint;
   fruits: bigint;
-  encryptedPoints: string;  // 🔥 加密handle（字符串格式）
+  encryptedPoints: string;
   cooldownRemaining: bigint;
   dailyFertilizeCount: bigint;
   dailyFertilizeRemaining: bigint;
@@ -117,17 +121,23 @@ export interface LeaderboardEntry {
   fertilizeCount: bigint;
 }
 
-// 🔥 FHE相关常量
+// 🔥 新增：兑换请求状态
+export interface RedeemStatus {
+  user: string;
+  claimedAmount: bigint;
+  isResolved: boolean;
+  revealedSpend: number;
+  revealedTotal: number;
+  decryptionRequestId: bigint;
+}
+
 export const FHE_CONFIG = {
-  // 解密签名有效期（天）
   SIGNATURE_VALIDITY_DAYS: 7,
-  
-  // 本地存储键前缀
   STORAGE_PREFIX: "magictree_fhe_",
-  
-  // 解密超时时间（毫秒）
   DECRYPT_TIMEOUT: 30000,
-  
-  // 自动重试次数
   MAX_RETRY_ATTEMPTS: 3,
+  
+  // 🔥 Oracle 相关配置
+  ORACLE_CHECK_INTERVAL: 5000,      // 每5秒检查一次
+  ORACLE_MAX_WAIT_TIME: 120000,     // 最多等待2分钟
 } as const;

@@ -1,7 +1,7 @@
 import hre from "hardhat";
 
 async function main() {
-  const contractAddress = "0x5e6FD35139544A6A39dfB90F1241D5b4E865602E";
+  const contractAddress = "0x990cb58A45A65002c361853d6cE0F508c30A63Aa";
   
   console.log("💰 开始提取合约余额...");
   

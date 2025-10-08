@@ -7,6 +7,12 @@ import { useEffect, useState } from 'react';
 import { useInMemoryStorage } from '@/hooks/useInMemoryStorage';
 
 export default function TokenExchangeSection() {
+
+  // 🔥 直接定义配置参数
+  const ORACLE_CONFIG = {
+    CHECK_INTERVAL: 5000,      // 每5秒检查一次
+    MAX_WAIT_TIME: 120000,     // 最多等待2分钟
+  };
   const { contract, treeInfo, refreshTreeInfo, signer } = useWeb3();
   const { t } = useLanguage();
   const { fhevmInstance, isReady } = useFHEVM();
@@ -24,6 +30,11 @@ export default function TokenExchangeSection() {
   // FHE解密状态
   const [decryptedPoints, setDecryptedPoints] = useState<bigint | null>(null);
   const [isDecrypting, setIsDecrypting] = useState(false);
+
+  // 🔥 新增：Oracle 兑换状态
+  const [currentRedeemId, setCurrentRedeemId] = useState<bigint | null>(null);
+  const [isWaitingOracle, setIsWaitingOracle] = useState(false);
+  const [oracleProgress, setOracleProgress] = useState(0);
 
   const { storage } = useInMemoryStorage();
 
@@ -72,19 +83,13 @@ export default function TokenExchangeSection() {
   // 解密积分函数
   const handleDecryptPoints = async () => {
     if (!fhevmInstance || !contract || !signer || !treeInfo?.encryptedPoints) {
-      setMessage({ 
-        text: t('fheNotReady'), 
-        type: 'error' 
-      });
+      setMessage({ text: t('fheNotReady'), type: 'error' });
       return;
     }
 
     try {
       setIsDecrypting(true);
-      setMessage({ 
-        text: t('decryptingPoints'), 
-        type: 'info' 
-      });
+      setMessage({ text: t('decryptingPoints'), type: 'info' });
 
       const { FhevmDecryptionSignature } = await import('../fhevm-react');
       
@@ -114,53 +119,47 @@ export default function TokenExchangeSection() {
       const points = BigInt(decryptedData[treeInfo.encryptedPoints]);
       setDecryptedPoints(points);
       
-      setMessage({ 
-        text: `${t('decryptSuccess')}: ${points} ${t('points')}`, 
-        type: 'success' 
-      });
+      setMessage({ text: `${t('decryptSuccess')}: ${points} ${t('points')}`, type: 'success' });
     } catch (error: any) {
       console.error('Decrypt error:', error);
-      setMessage({ 
-        text: `${t('decryptFailed')}: ${error.message}`, 
-        type: 'error' 
-      });
+      setMessage({ text: `${t('decryptFailed')}: ${error.message}`, type: 'error' });
     } finally {
       setIsDecrypting(false);
     }
   };
 
-  // 🔥 更新：FHE版本的代币兑换（3个参数）
-  const handleExchange = async () => {
-    // ✅ 第一件事：立即设置 loading
+  // 🔥 新增：步骤1 - 请求兑换
+  const handleRequestRedeem = async () => {
     setLoading(true);
-    setMessage({ text: t('checkingExchange'), type: 'info' });
+    setMessage({ text: t('preparingRedeem'), type: 'info' });
     
-    // 使用 setTimeout 0 确保 UI 立即更新
     await new Promise(resolve => setTimeout(resolve, 0));
 
     if (!contract || !fhevmInstance || !signer || !pointsToExchange) {
       setMessage({ text: t('invalidAmount'), type: 'error' });
+      setLoading(false);
       return;
     }
     
     const points = Number(pointsToExchange);
     if (isNaN(points) || points <= 0) {
       setMessage({ text: t('invalidAmount'), type: 'error' });
+      setLoading(false);
       return;
     }
     
     // 验证：如果已解密，检查积分是否足够
     if (decryptedPoints !== null && BigInt(points) > decryptedPoints) {
       setMessage({ text: t('insufficientPoints'), type: 'error' });
+      setLoading(false);
       return;
     }
-    try {
 
-      
+    try {
       const contractAddress = await contract.getAddress();
       const signerAddress = await signer.getAddress();
 
-      // 🔥 步骤1: 创建加密输入
+      // 创建加密输入
       setMessage({ text: t('creatingEncryptedInput'), type: 'info' });
       const input = fhevmInstance.createEncryptedInput(
         contractAddress,
@@ -168,75 +167,263 @@ export default function TokenExchangeSection() {
       );
       input.add32(points);
 
-      // 🔥 步骤2: 执行加密
+      // 执行加密
       setMessage({ text: t('encryptingData'), type: 'info' });
       const encrypted = await input.encrypt();
 
-      console.log('🔒 Encrypted exchange input:', {
-        points: points,
+      console.log('🔒 Encrypted redeem request:', {
+        points,
         handle: encrypted.handles[0],
-        handleType: typeof encrypted.handles[0],
         proof: encrypted.inputProof.slice(0, 20) + '...'
       });
-  
 
-      // 🔥 步骤3: 调用合约（传入3个参数）
-      // 参数1: encrypted.handles[0] - externalEuint32 (加密的积分)
-      // 参数2: encrypted.inputProof - bytes (加密证明)
-      // 参数3: points - uint256 (明文积分数量，用于计算代币)
-      setMessage({ text: t('sendingTransaction'), type: 'info' });
-      const tx = await contract.redeemTokens(
-        encrypted.handles[0],      // externalEuint32 inputEuint32
-        encrypted.inputProof,      // bytes calldata inputProof
-        points                     // uint256 decryptedAmount
+      // 🔥 步骤1：调用 requestRedeemTokens（3个参数）
+      setMessage({ text: t('submittingRequest'), type: 'info' });
+      const tx = await contract.requestRedeemTokens(
+        encrypted.handles[0],   // bytes32 encryptedAmount
+        points,                 // uint256 claimedAmount
+        encrypted.inputProof    // bytes inputProof
       );
-      
+
       setMessage({ text: `${t('txSubmitted')}: ${tx.hash.slice(0, 10)}...`, type: 'info' });
-      
+
       const receipt = await tx.wait();
-      
-      // 解析事件获取实际兑换的代币数量
-      const redeemEvent = receipt.logs.find((log: any) => {
+
+      // 从事件中提取 redeemId
+      const redeemRequestedEvent = receipt.logs.find((log: any) => {
         try {
           const parsed = contract.interface.parseLog(log);
-          return parsed?.name === 'TokensRedeemed';
+          return parsed?.name === 'RedeemRequested';
         } catch {
           return false;
         }
       });
 
-      let actualTokens = tokensToReceive;
-      if (redeemEvent) {
-        const parsed = contract.interface.parseLog(redeemEvent);
-        const tokensReceived = parsed?.args.tokensReceived;
-        actualTokens = (Number(tokensReceived) / 10**18).toFixed(2);
+      if (!redeemRequestedEvent) {
+        throw new Error('Failed to find RedeemRequested event');
       }
-      
-      setMessage({ 
-        text: `${t('exchangeSuccess')} ${points} ${t('forTokens')} ${actualTokens} ${t('tokens')}`, 
-        type: 'success' 
+
+      const parsed = contract.interface.parseLog(redeemRequestedEvent);
+      const redeemId = parsed?.args.redeemId;
+
+      console.log('✅ Redeem request submitted:', {
+        redeemId: redeemId.toString(),
+        user: signerAddress,
+        points
       });
-      
-      setPointsToExchange('');
-      
-      // 清空解密缓存（积分已改变）
-      setDecryptedPoints(null);
-      
-      refreshTreeInfo();
+
+      setCurrentRedeemId(redeemId);
+      setMessage({
+        text: `${t('redeemRequestSubmitted')} ID: ${redeemId.toString()}`,
+        type: 'success'
+      });
+
+      // 🔥 步骤2：自动请求解密
+      await handleRequestDecryption(redeemId);
+
     } catch (error: any) {
-      console.error('Exchange error:', error);
-      
-      // 更详细的错误信息
+      console.error('Request redeem error:', error);
       let errorMessage = error.message;
       if (error.message.includes('insufficient')) {
         errorMessage = t('pointsInsufficientCheck');
       } else if (error.message.includes('underflow')) {
         errorMessage = t('pointsInsufficientUnderflow');
       }
-      
-      setMessage({ text: `${t('exchangeFailed')} ${errorMessage}`, type: 'error' });
+      setMessage({ text: `${t('requestFailed')} ${errorMessage}`, type: 'error' });
     } finally {
       setLoading(false);
+    }
+  };
+
+  // 🔥 新增：步骤2 - 请求解密
+  const handleRequestDecryption = async (redeemId: bigint, retryCount = 0) => {
+    if (!contract) return;
+  
+    const MAX_RETRIES = 3;
+    const RETRY_DELAY = 3000; // 3秒
+  
+    try {
+      setMessage({ text: t('requestingDecryption'), type: 'info' });
+  
+      // 先检查状态
+      const status = await contract.getRedeemStatus(redeemId);
+      const [user, claimedAmount, isResolved, revealedSpend, revealedTotal, decryptionRequestId] = status;
+  
+      console.log(`📋 Checking status (attempt ${retryCount + 1}/${MAX_RETRIES + 1}):`, {
+        redeemId: redeemId.toString(),
+        user,
+        isResolved,
+        decryptionRequestId: decryptionRequestId.toString()
+      });
+  
+      // 如果已经解密完成
+      if (isResolved) {
+        await handleRedeemResult(redeemId, revealedSpend, revealedTotal);
+        return;
+      }
+  
+      // 如果已经请求过解密
+      if (decryptionRequestId > 0) {
+        console.log('✅ Decryption already requested, watching callback...');
+        await watchOracleCallback(redeemId);
+        return;
+      }
+  
+      // 请求解密
+      const tx = await contract.requestDecryption(redeemId);
+      await tx.wait();
+  
+      setMessage({ text: t('decryptionRequested'), type: 'success' });
+      await watchOracleCallback(redeemId);
+  
+    } catch (error: any) {
+      console.error(`❌ Decryption request error (attempt ${retryCount + 1}):`, error);
+  
+      // 如果还有重试次数
+      if (retryCount < MAX_RETRIES) {
+        console.log(`⏳ Retrying in ${RETRY_DELAY}ms...`);
+        setMessage({ 
+          text: t('retrying') + ` (${retryCount + 1}/${MAX_RETRIES})`, 
+          type: 'info' 
+        });
+        
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+        await handleRequestDecryption(redeemId, retryCount + 1);
+      } else {
+        // 重试次数用完
+        console.error('❌ Max retries reached');
+        setMessage({ 
+          text: t('decryptionRetryFailed'), 
+          type: 'error' 
+        });
+      }
+    }
+  };
+
+  // 🔥 新增：步骤3 - 监听 Oracle 回调
+  const watchOracleCallback = async (redeemId: bigint) => {
+    if (!contract) return;
+
+    setIsWaitingOracle(true);
+    setOracleProgress(0);
+    setMessage({ text: t('waitingForOracle'), type: 'info' });
+
+    const startTime = Date.now();
+    const maxWaitTime = ORACLE_CONFIG.MAX_WAIT_TIME;
+    const checkInterval = ORACLE_CONFIG.CHECK_INTERVAL;
+
+    const checkStatus = async (): Promise<boolean> => {
+      try {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min((elapsed / maxWaitTime) * 100, 99);
+        setOracleProgress(progress);
+
+        // 查询兑换状态
+        const status = await contract.getRedeemStatus(redeemId);
+        const [user, claimedAmount, isResolved, revealedSpend, revealedTotal, decryptionRequestId] = status;
+
+        console.log('⏳ Checking Oracle status:', {
+          redeemId: redeemId.toString(),
+          isResolved,
+          elapsed: `${(elapsed / 1000).toFixed(1)}s`
+        });
+
+        if (isResolved) {
+          // 处理完成
+          setOracleProgress(100);
+          await handleRedeemResult(redeemId, revealedSpend, revealedTotal);
+          return true;
+        }
+
+        // 检查超时
+        if (elapsed > maxWaitTime) {
+          setIsWaitingOracle(false);
+          setMessage({ text: t('oracleTimeout'), type: 'warning' });
+          return true;
+        }
+
+        return false;
+      } catch (error) {
+        console.error('Error checking status:', error);
+        return false;
+      }
+    };
+
+    // 轮询检查
+    const pollInterval = setInterval(async () => {
+      const isDone = await checkStatus();
+      if (isDone) {
+        clearInterval(pollInterval);
+        setIsWaitingOracle(false);
+      }
+    }, checkInterval);
+
+    // 立即检查一次
+    const isDone = await checkStatus();
+    if (isDone) {
+      clearInterval(pollInterval);
+      setIsWaitingOracle(false);
+    }
+  };
+
+  // 🔥 新增：处理兑换结果
+  const handleRedeemResult = async (redeemId: bigint, revealedSpend: number, revealedTotal: number) => {
+    if (!contract) return;
+
+    try {
+      const signerAddress = await signer?.getAddress();
+      
+      // 查询 RedeemProcessed 事件
+      const processedFilter = contract.filters.RedeemProcessed(signerAddress);
+      const processedEvents = await contract.queryFilter(processedFilter, -1000);
+
+      const matchedEvent = processedEvents.find(
+        (e: any) => {
+          // 添加类型检查
+          if ('args' in e && e.args) {
+            return e.args.redeemId.toString() === redeemId.toString();
+          }
+          return false;
+        }
+      );
+
+      if (matchedEvent && 'args' in matchedEvent) {
+        // 兑换成功
+        const tokensReceived = matchedEvent.args.tokensReceived;
+        const tokensFormatted = (Number(tokensReceived) / 10 ** 18).toFixed(2);
+
+        setMessage({
+          text: `🎉 ${t('redeemSuccess')} ${revealedSpend} ${t('points')} → ${tokensFormatted} ${t('tokens')}`,
+          type: 'success'
+        });
+
+        setCurrentRedeemId(null);
+        setPointsToExchange('');
+        setDecryptedPoints(null);
+        refreshTreeInfo();
+        return;
+      }
+
+      // 查询 RedeemFailed 事件
+      const failedFilter = contract.filters.RedeemFailed(signerAddress);
+      const failedEvents = await contract.queryFilter(failedFilter, -1000);
+
+      const failedEvent = failedEvents.find(
+        (e: any) => e.args.redeemId.toString() === redeemId.toString()
+      );
+
+      if (failedEvent && 'args' in failedEvent) {
+        const reason = failedEvent.args.reason;
+        setMessage({
+          text: `❌ ${t('redeemFailed')}: ${reason}`,
+          type: 'error'
+        });
+        setCurrentRedeemId(null);
+      }
+
+    } catch (error) {
+      console.error('Error handling result:', error);
+      setMessage({ text: t('queryResultError'), type: 'error' });
     }
   };
 
@@ -295,11 +482,11 @@ export default function TokenExchangeSection() {
           </div>
         </div>
         
-        {/* 积分显示卡片 - 支持FHE解密 */}
+        {/* 积分显示卡片 */}
         <div className="bg-white/10 backdrop-blur-sm p-6 rounded-2xl">
           <div className="text-sm opacity-80 mb-2 flex items-center gap-2">
             {t('yourPoints')}
-            <span className="text-xs bg-purple-500/50 px-2 py-0.5 rounded-full">🔒 FHE</span>
+            <span className="text-xs bg-purple-500/50 px-2 py-0.5 rounded-full">🔐 FHE</span>
           </div>
           {decryptedPoints !== null ? (
             <div>
@@ -331,9 +518,24 @@ export default function TokenExchangeSection() {
       {/* FHE状态提示 */}
       {!isReady && (
         <div className="mb-6 p-3 bg-yellow-500/20 border-2 border-yellow-500/50 rounded-lg animate-pulse">
-          <div className="text-sm">
-            {t('fhevmWarning')}
+          <div className="text-sm">{t('fhevmWarning')}</div>
+        </div>
+      )}
+
+      {/* 🔥 Oracle 进度显示 */}
+      {isWaitingOracle && (
+        <div className="mb-6 p-4 bg-blue-500/20 border-2 border-blue-500/50 rounded-lg">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-semibold">⏳ {t('oracleProcessing')}</span>
+            <span className="text-xs opacity-70">{oracleProgress.toFixed(0)}%</span>
           </div>
+          <div className="w-full bg-white/10 rounded-full h-2 overflow-hidden">
+            <div 
+              className="h-full bg-gradient-to-r from-blue-400 to-purple-400 transition-all duration-500"
+              style={{ width: `${oracleProgress}%` }}
+            />
+          </div>
+          <div className="text-xs opacity-60 mt-2">{t('oracleWaitMessage')}</div>
         </div>
       )}
 
@@ -344,24 +546,35 @@ export default function TokenExchangeSection() {
           <input
             type="number"
             value={pointsToExchange}
-            onChange={(e) => setPointsToExchange(e.target.value)}
+            onChange={(e) => {
+              if (decryptedPoints !== null) {
+                setPointsToExchange(e.target.value);
+              } else {
+                setMessage({ text: t('decryptFirst'), type: 'error' });
+              }
+            }}
+            onFocus={() => {
+              // 当用户尝试聚焦时也提示
+              if (decryptedPoints === null) {
+                setMessage({ text: t('decryptFirst'), type: 'error' });
+              }
+            }}
             placeholder={t('enterPointsAmount')}
             className="flex-1 bg-white/20 backdrop-blur-sm rounded-xl px-6 py-4 text-lg font-semibold outline-none focus:ring-2 focus:ring-pink-400 transition-all placeholder-white/40"
             min="0"
             max={decryptedPoints !== null ? decryptedPoints.toString() : undefined}
+            disabled={loading || isWaitingOracle}
           />
           <button
             onClick={() => {
               if (decryptedPoints !== null) {
                 setPointsToExchange(decryptedPoints.toString());
               } else {
-                setMessage({ 
-                  text: t('decryptFirst'), 
-                  type: 'error' 
-                });
+                setMessage({ text: t('decryptFirst'), type: 'error' });
               }
             }}
-            className="bg-white/20 hover:bg-white/30 px-6 py-4 rounded-xl font-semibold transition-all hover:scale-105"
+            disabled={loading || isWaitingOracle}
+            className="bg-white/20 hover:bg-white/30 px-6 py-4 rounded-xl font-semibold transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {t('max')}
           </button>
@@ -377,11 +590,12 @@ export default function TokenExchangeSection() {
         )}
       </div>
 
-      {/* 兑换按钮 - 优化加载状态和即时反馈 */}
+      {/* 🔥 兑换按钮 */}
       <button
-        onClick={handleExchange}
+        onClick={handleRequestRedeem}
         disabled={
           loading || 
+          isWaitingOracle ||
           !isReady || 
           !pointsToExchange || 
           Number(pointsToExchange) <= 0 || 
@@ -393,29 +607,32 @@ export default function TokenExchangeSection() {
           disabled:opacity-50 disabled:cursor-not-allowed 
           text-white font-bold py-5 px-8 rounded-full text-xl 
           transition-all duration-200
-          ${loading ? 'scale-95 opacity-80' : 'hover:scale-105'}
+          ${(loading || isWaitingOracle) ? 'scale-95 opacity-80' : 'hover:scale-105'}
           hover:shadow-2xl disabled:hover:scale-100
           active:scale-95
         `}
       >
-        {loading ? (
+        {isWaitingOracle ? (
           <span className="flex items-center justify-center gap-3">
-            {/* 方案1: 脉冲效果（立即启动） */}
+            {/* Oracle 处理中动画 */}
             <span className="relative flex h-6 w-6">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
               <span className="relative inline-flex rounded-full h-6 w-6 bg-white/30 items-center justify-center">
                 <span className="h-3 w-3 rounded-full bg-white"></span>
               </span>
             </span>
-            
-            {/* 方案2: 三点跳动（备选） - 取消注释使用 */}
-            {/* <span className="flex gap-1">
-              <span className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-              <span className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-              <span className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
-            </span> */}
-            
-            <span>{t('exchanging')}</span>
+            <span>{t('oracleProcessing')} ({oracleProgress.toFixed(0)}%)</span>
+          </span>
+        ) : loading ? (
+          <span className="flex items-center justify-center gap-3">
+            {/* 提交请求动画 */}
+            <span className="relative flex h-6 w-6">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-6 w-6 bg-white/30 items-center justify-center">
+                <span className="h-3 w-3 rounded-full bg-white"></span>
+              </span>
+            </span>
+            <span>{t('processing')}</span>
           </span>
         ) : !isReady ? (
           <span className="flex items-center justify-center gap-2">
@@ -426,11 +643,10 @@ export default function TokenExchangeSection() {
           t('allTokensMinted')
         ) : (
           <span className="flex items-center justify-center gap-2">
-            {t('exchangeTokensFHE')}
+            🔐 {t('exchangeTokensOracle')}
           </span>
         )}
       </button>
-
 
       {/* 消息提示 */}
       {message.text && (
@@ -440,6 +656,8 @@ export default function TokenExchangeSection() {
               ? 'bg-red-500/30 border-2 border-red-500/50'
               : message.type === 'success'
               ? 'bg-green-500/30 border-2 border-green-500/50'
+              : message.type === 'warning'
+              ? 'bg-yellow-500/30 border-2 border-yellow-500/50'
               : 'bg-blue-500/30 border-2 border-blue-500/50'
           }`}
         >
@@ -450,14 +668,14 @@ export default function TokenExchangeSection() {
       {/* 说明文字 */}
       <div className="mt-8 p-6 bg-white/5 backdrop-blur-sm rounded-2xl text-sm opacity-70">
         <div className="mb-3">
-          <strong className="text-purple-300">{t('fhePrivacyTitle')}</strong>
+          <strong className="text-purple-300">🔐 {t('oracleDecryptionTitle')}</strong>
         </div>
         <ul className="space-y-1 ml-6 mb-4">
-          <li>{t('fhePrivacyPoint1')}</li>
-          <li>{t('fhePrivacyPoint2')}</li>
-          <li>{t('fhePrivacyPoint3')}</li>
-          <li>{t('fhePrivacyPoint4')}</li>
-          <li>{t('fhePrivacyPoint5')}</li>
+          <li>• {t('oraclePoint1')}</li>
+          <li>• {t('oraclePoint2')}</li>
+          <li>• {t('oraclePoint3')}</li>
+          <li>• {t('oraclePoint4')}</li>
+          <li>• {t('oraclePoint5')}</li>
         </ul>
         
         <div className="mb-2">📊 <strong>{t('exchangeRateTiers')}</strong></div>
@@ -465,7 +683,7 @@ export default function TokenExchangeSection() {
           <li>• {t('tierInfo1')}</li>
           <li>• {t('tierInfo2')}</li>
           <li>• {t('tierInfo3')}</li>
-          <li>• {t('tierInfoIncrease')}</li>    
+          <li>• {t('tierInfoIncrease')}</li>
         </ul>
       </div>
     </div>

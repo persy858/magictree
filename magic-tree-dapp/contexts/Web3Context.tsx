@@ -156,9 +156,30 @@ export function Web3Provider({ children }: { children: ReactNode }) {
       });
       
       // 代币兑换事件（重要：兑换后需要刷新积分）
-      contract.on('TokensRedeemed', (user, tokensReceived, timestamp) => {
-        console.log('💰 Tokens redeemed:', { user, tokensReceived, timestamp });
+      // contract.on('TokensRedeemed', (user, tokensReceived, timestamp) => {
+      //   console.log('💰 Tokens redeemed:', { user, tokensReceived, timestamp });
+      //   handleEvent();
+      // });
+
+      // 🔥 更新：监听新的兑换相关事件
+      contract.on('RedeemRequested', (user, redeemId, claimedAmount, timestamp) => {
+        console.log('📝 Redeem requested:', { user, redeemId, claimedAmount, timestamp });
         handleEvent();
+      });
+
+      contract.on('DecryptionRequested', (redeemId, decryptionRequestId) => {
+        console.log('🔓 Decryption requested:', { redeemId, decryptionRequestId });
+        // 不需要立即刷新，等待 RedeemProcessed
+      });
+
+      contract.on('RedeemProcessed', (user, redeemId, actualAmount, tokensReceived) => {
+        console.log('💰 Redeem processed:', { user, redeemId, actualAmount, tokensReceived });
+        handleEvent(); // 🔥 兑换成功后刷新积分
+      });
+
+      contract.on('RedeemFailed', (user, redeemId, reason) => {
+        console.log('❌ Redeem failed:', { user, redeemId, reason });
+        handleEvent(); // 🔥 失败也刷新（可能有状态变化）
       });
 
       return () => {
@@ -166,6 +187,11 @@ export function Web3Provider({ children }: { children: ReactNode }) {
         contract.off('TreeFertilized', handleEvent);
         contract.off('FruitDecomposed', handleEvent);
         contract.off('TokensRedeemed', handleEvent);
+
+        contract.off('RedeemRequested', handleEvent);
+        contract.off('DecryptionRequested', handleEvent);
+        contract.off('RedeemProcessed', handleEvent);
+        contract.off('RedeemFailed', handleEvent);
       };
     }
   }, [contract, account]);

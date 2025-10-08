@@ -32,7 +32,7 @@ async function main() {
   console.log("Step 2/3: Deploying MagicTreeFHE (FHE Version)...");
   console.log("━".repeat(60));
   
-  const MagicTreeFHE = await hre.ethers.getContractFactory("MagicTreeFHE");
+  const MagicTreeFHE = await hre.ethers.getContractFactory("MagicTreeFHEOracle");
   console.log("   Compiling FHE contract...");
   
   const magicTree = await MagicTreeFHE.deploy(tokenAddress);

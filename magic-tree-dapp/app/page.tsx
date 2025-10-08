@@ -1,7 +1,7 @@
 // app/page.tsx
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useWeb3 } from '@/contexts/Web3Context';
 import { useLanguage } from '@/contexts/LanguageContext';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
@@ -15,6 +15,16 @@ export default function Home() {
   const { isConnected, treeInfo } = useWeb3();
   const { t } = useLanguage();
   const [fhevmReady, setFhevmReady] = useState(false);
+  const [dataReady, setDataReady] = useState(false);  // 👈 新增
+
+  // 🔥 等待数据完全加载
+  useEffect(() => {
+    if (fhevmReady && treeInfo) {
+      setTimeout(() => setDataReady(true), 300);
+    } else {
+      setDataReady(false);
+    }
+  }, [fhevmReady, treeInfo]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-600 via-purple-700 to-purple-900 text-white p-5">
@@ -40,9 +50,9 @@ export default function Home() {
             {/* 步骤2: 等待 FHEVM ready 后才渲染其他组件 */}
             {fhevmReady ? (
               <>
-                {!treeInfo?.exists && <MintSection />}
-                {treeInfo?.exists && <TreeSection />}
-                {treeInfo?.exists && <TokenExchangeSection />}
+                {!treeInfo?.exists && dataReady && <MintSection />}
+                {treeInfo?.exists && dataReady && <TreeSection />}
+                {treeInfo?.exists && dataReady && <TokenExchangeSection />}
               </>
             ) : (
               // FHEVM 未就绪时的占位符（可选）

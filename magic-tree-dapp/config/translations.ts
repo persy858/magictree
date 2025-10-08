@@ -128,6 +128,39 @@ export const translations = {
     fhePrivacyPoint3: "• 兑换时系统会自动加密你的输入数据",
     fhePrivacyPoint4: "• FHE技术确保交易安全且隐私",
     fhePrivacyPoint5: "• 合约会自动验证你是否有足够的积分（加密状态下）",
+
+
+    // 🔥 Oracle 异步解密相关
+    preparingRedeem: "准备兑换请求...",
+    submittingRequest: "提交兑换请求...",
+    redeemRequestSubmitted: "兑换请求已提交！",
+    requestFailed: "请求失败",
+    
+    requestingDecryption: "请求解密中...",
+    decryptionRequested: "解密请求已提交",
+    decryptionRequestFailed: "解密请求失败",
+    retrying: "重试中... ",
+    decryptionRetryFailed: "解密请求失败，请手动查询状态或重新兑换",
+    
+    waitingForOracle: "等待 Oracle 解密中（约10-60秒）...",
+    oracleProcessing: "Oracle 正在处理",
+    oracleTimeout: "Oracle 处理超时，请稍后查看结果",
+    oracleWaitMessage: "正在等待 Zama KMS 网络解密您的积分...",
+    
+    redeemSuccess: "兑换成功！",
+    redeemFailed: "兑换失败",
+    queryResultError: "查询兑换结果时出错",
+    
+    processing: "处理中...",
+    exchangeTokensOracle: "兑换代币（Oracle 安全解密）",
+    
+    // Oracle 说明
+    oracleDecryptionTitle: "Zama Oracle 安全解密",
+    oraclePoint1: "两步流程：提交请求 → 请求解密 → 等待回调",
+    oraclePoint2: "使用 Zama 去中心化 Oracle 网络进行链上解密",
+    oraclePoint3: "完全去中心化，无需信任第三方签名服务",
+    oraclePoint4: "解密过程由 Zama KMS 网络执行，约需 10-60 秒",
+    oraclePoint5: "防止报文篡改攻击，明文值由可信 Oracle 提供",
   },
   en: {
     // Basic translations
@@ -258,6 +291,39 @@ export const translations = {
     fhePrivacyPoint3: "• System automatically encrypts your input during exchange",
     fhePrivacyPoint4: "• FHE technology ensures secure and private transactions",
     fhePrivacyPoint5: "• Contract automatically verifies sufficient points (in encrypted state)",
+
+    // 🔥 Oracle async decryption related
+    preparingRedeem: "Preparing redeem request...",
+    submittingRequest: "Submitting request...",
+    redeemRequestSubmitted: "Redeem request submitted!",
+    requestFailed: "Request failed",
+    
+    requestingDecryption: "Requesting decryption...",
+    decryptionRequested: "Decryption request submitted",
+    decryptionRequestFailed: "Decryption request failed",
+    retrying: "Retrying... ",  
+    decryptionRetryFailed: "Decryption request failed, please check status manually or redeem again", 
+    
+    waitingForOracle: "Waiting for Oracle decryption (about 10-60s)...",
+    oracleProcessing: "Oracle is processing",
+    oracleTimeout: "Oracle processing timeout, please check result later",
+    oracleWaitMessage: "Waiting for Zama KMS network to decrypt your points...",
+    
+    redeemSuccess: "Redeem successful!",
+    redeemFailed: "Redeem failed",
+    queryResultError: "Error querying redeem result",
+    
+    processing: "Processing...",
+    exchangeTokensOracle: "Redeem Tokens (Oracle Secure Decryption)",
+    
+    // Oracle explanation
+    oracleDecryptionTitle: "Zama Oracle Secure Decryption",
+    oraclePoint1: "Two-step process: Submit request → Request decryption → Wait for callback",
+    oraclePoint2: "Uses Zama decentralized Oracle network for on-chain decryption",
+    oraclePoint3: "Fully decentralized, no need to trust third-party signing services",
+    oraclePoint4: "Decryption process executed by Zama KMS network, takes about 10-60 seconds",
+    oraclePoint5: "Prevents message tampering attacks, plaintext values provided by trusted Oracle",
+    
   }
 };
 
