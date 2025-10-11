@@ -62,9 +62,9 @@ contract MagicTreeFHEOracle is SepoliaConfig {
     
     // 常量
     uint256 public constant MINT_PRICE = 0.01 ether;
-    uint256 public constant COOLDOWN_TIME = 20 seconds;
+    uint256 public constant COOLDOWN_TIME = 10 seconds;
     uint256 public constant FERTILIZE_FOR_FRUIT = 5;
-    uint256 public constant MAX_DAILY_FERTILIZE = 30;
+    uint256 public constant MAX_DAILY_FERTILIZE = 5;
     address public owner;
     
     uint256 private redeemCounter;
@@ -139,9 +139,9 @@ contract MagicTreeFHEOracle is SepoliaConfig {
         tree.fruits--;
         
         euint32 randomValue = FHE.randEuint32();
-        euint32 mask = FHE.asEuint32(511);
+        euint32 mask = FHE.asEuint32(2047);
         euint32 lowBits = FHE.and(randomValue, mask);
-        euint32 minValue = FHE.asEuint32(128);
+        euint32 minValue = FHE.asEuint32(1000);
         euint32 randomPoints = FHE.add(lowBits, minValue);
         
         tree.points = FHE.add(tree.points, randomPoints);
