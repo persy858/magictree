@@ -48,15 +48,15 @@ Pay 0.01 ETH to mint your unique magical tree and join the game.
 
 ### Step 2: Fertilize & Grow 💧
 
-- Fertilize your tree every 20 seconds
+- Fertilize your tree every 10 seconds
 - Each 5 fertilizations produce 1 fruit
-- Daily limit: 30 fertilizations to keep it fair
+- Daily limit: 5 fertilizations to keep it fair
 
 ### Step 3: Harvest Fruits 🍎
 
 Convert your fruits into encrypted points:
 
-- Each fruit gives you **128-637 random points**
+- Each fruit gives you **1000-3047 random points**
 - Points are stored as encrypted values (FHE)
 - Your actual score remains hidden from everyone
 
@@ -123,8 +123,8 @@ MagicTree is among the first games to implement:
 
 - **Dynamic Exchange Rate**: Increases every 500 players
 - **Mint Cost**: 0.01 ETH per tree
-- **Point Range**: 128-637 per fruit
-- **Max Daily Fertilize**: 30 times per day
+- **Point Range**: 1000-3047 per fruit
+- **Max Daily Fertilize**: 5 times per day
 
 ## 🛡️ Security & Trust
 
