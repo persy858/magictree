@@ -3,7 +3,7 @@
 
 
 ### Demo：https://www.magictree.space/
-### Video demo: https://youtu.be/WlwNkOl3N1k
+### Video demo: https://youtu.be/QADesupo1uI
 
 
 # 🌳 MagicTree FHE 
